@@ -68,7 +68,9 @@ export default function VideoEditor() {
           ref={videoRef}
           controls
           style={{ width: "640px", height: "360px" }}
-        ></video>
+        >
+          <source src={URL.createObjectURL(videoFile)} type="video/mp4" />
+        </video>
       )}
       <Button onClick={processVideo} disabled={!videoFile || loading}>
         {loading ? "Processing..." : "Trim Video"}

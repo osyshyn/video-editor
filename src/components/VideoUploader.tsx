@@ -1,11 +1,13 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { Button } from "@/components/ui/button";
+import VideoTimeLine from "./VideoTimeLine";
 
 export default function VideoEditor() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [videoTime, setVideoTime] = useState(0); // Track current video time
   const ffmpegRef = useRef(new FFmpeg());
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const messageRef = useRef<HTMLParagraphElement | null>(null);
@@ -61,6 +63,32 @@ export default function VideoEditor() {
     setLoading(false);
   };
 
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      setVideoTime(videoRef.current.currentTime); // Update video time
+    }
+  };
+
+  const handleRangeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(event.target.value);
+    if (videoRef.current) {
+      console.log(Math.floor(videoRef.current.duration));
+      videoRef.current.currentTime = value; // Update video time when slider changes
+    }
+  };
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.addEventListener("timeupdate", handleTimeUpdate);
+    }
+
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.removeEventListener("timeupdate", handleTimeUpdate);
+      }
+    };
+  }, []);
+
   return (
     <div className="m-5">
       {!videoFile && (
@@ -105,17 +133,28 @@ export default function VideoEditor() {
         <div className="relative p-5 rounded-2xl overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700 ">
           <video
             ref={videoRef}
+            src={URL.createObjectURL(videoFile)}
+            // src="http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
             controls
             className="rounded-xl w-[640px] h-[360x]"
-          >
-            <source src={URL.createObjectURL(videoFile)} type="video/mp4" />
-          </video>
+          ></video>
         </div>
       )}
+
       {videoFile && (
         <Button onClick={processVideo} disabled={loading}>
           {loading ? "Processing..." : "Trim Video"}
         </Button>
+      )}
+
+      {videoFile && (
+        <div>
+          <VideoTimeLine
+            handleRangeChange={handleRangeChange}
+            videoTime={videoTime}
+            videoRef={videoRef}
+          />
+        </div>
       )}
     </div>
   );

@@ -12,6 +12,26 @@ export default function VideoEditor() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const messageRef = useRef<HTMLParagraphElement | null>(null);
 
+  const [loaded, setLoaded] = useState(false);
+  const [overlayText, setOverlayText] = useState("Ваш текст");
+  const [textX, setTextX] = useState(10);
+  const [textY, setTextY] = useState(10);
+  const [outputUrl, setOutputUrl] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [fontLoaded, setFontLoaded] = useState(false);
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  useEffect(() => {
+    if (videoFile && videoRef.current) {
+      const videoUrl = URL.createObjectURL(videoFile);
+      videoRef.current.src = videoUrl;
+      console.log("Updated video source:", videoUrl);
+    }
+  }, [videoFile]);
+
   const load = async () => {
     const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm";
     const ffmpeg = ffmpegRef.current;
@@ -25,11 +45,67 @@ export default function VideoEditor() {
         "application/wasm"
       ),
     });
+    setLoaded(true);
+    loadFont();
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) setVideoFile(file);
+  const loadFont = async () => {
+    const ffmpeg = ffmpegRef.current;
+    const fontData = await fetchFile(
+      "https://raw.githubusercontent.com/ffmpegwasm/testdata/master/arial.ttf"
+    );
+    await ffmpeg.writeFile("arial.ttf", fontData);
+    setFontLoaded(true);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    debugger;
+    const file = e.target.files?.[0];
+    console.log("Selected file:", file);
+    if (file) {
+      setVideoFile(file);
+      setOutputUrl(null);
+      if (videoRef.current) {
+        videoRef.current.src = URL.createObjectURL(file);
+        console.log("Video source set:", videoRef.current.src);
+      }
+    }
+  };
+
+  const transcode = async () => {
+    debugger;
+    if (!videoFile || !fontLoaded) return;
+    setProcessing(true);
+    const ffmpeg = ffmpegRef.current;
+    await ffmpeg.writeFile("input.mp4", await fetchFile(videoFile));
+
+    await ffmpeg.exec([
+      "-i",
+      "input.mp4",
+      "-vf",
+      "scale=640:-1",
+      "resized.mp4",
+    ]);
+
+    await ffmpeg.exec([
+      "-i",
+      "resized.mp4",
+      "-vf",
+      `drawtext=fontfile=/arial.ttf:text='${overlayText}':x=${textX}:y=${textY}:fontsize=24:fontcolor=white`,
+      "output.mp4",
+    ]);
+
+    const data = (await ffmpeg.readFile("output.mp4")) as Uint8Array;
+    const videoBlob = new Blob([data.buffer], { type: "video/mp4" });
+    const videoUrl = URL.createObjectURL(videoBlob);
+    setOutputUrl(videoUrl);
+
+    if (videoRef.current) {
+      videoRef.current.src = videoUrl;
+    } else {
+      console.log("VideoRef: ", videoRef);
+    }
+    setProcessing(false);
   };
 
   const processVideo = async () => {
@@ -103,7 +179,7 @@ export default function VideoEditor() {
             <input
               id="dropzone-file"
               type="file"
-              accept="video/mp4"
+              accept="video/*"
               className="hidden"
               onChange={handleFileChange}
             />
@@ -115,10 +191,8 @@ export default function VideoEditor() {
         <div className="relative p-5 rounded-2xl overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700 ">
           <video
             ref={videoRef}
-            src={URL.createObjectURL(videoFile)}
-            // src="http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
             controls
-            className="rounded-xl w-[640px] h-[360x]"
+            className="mt-4 w-full max-w-md"
           ></video>
         </div>
       )}
@@ -136,6 +210,45 @@ export default function VideoEditor() {
             videoRef={videoRef}
           />
         </div>
+      )}
+
+      {videoFile && (
+        <>
+          <input
+            type="text"
+            value={overlayText}
+            onChange={(e) => setOverlayText(e.target.value)}
+            className="mt-2 p-2 border rounded w-full"
+            placeholder="Введите текст для видео"
+          />
+          <div className="mt-2 flex space-x-4">
+            <div>
+              <label className="block text-sm">Position X:</label>
+              <input
+                type="number"
+                value={textX}
+                onChange={(e) => setTextX(Number(e.target.value))}
+                className="p-2 border rounded w-24"
+              />
+            </div>
+            <div>
+              <label className="block text-sm">Position Y:</label>
+              <input
+                type="number"
+                value={textY}
+                onChange={(e) => setTextY(Number(e.target.value))}
+                className="p-2 border rounded w-24"
+              />
+            </div>
+          </div>
+          <button
+            onClick={transcode}
+            disabled={!videoFile || processing}
+            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded"
+          >
+            {processing ? "Processing..." : "Transcode Video"}
+          </button>
+        </>
       )}
     </div>
   );

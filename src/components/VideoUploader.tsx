@@ -1,13 +1,13 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { Button } from "@/components/ui/button";
-import VideoTimeLine from "./VideoTimeLine";
+import VideoTimeLine from "./VideoTimeLine/VideoTimeLine";
 
 export default function VideoEditor() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  const [videoTime, setVideoTime] = useState(0); // Track current video time
+
   const ffmpegRef = useRef(new FFmpeg());
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const messageRef = useRef<HTMLParagraphElement | null>(null);
@@ -63,31 +63,13 @@ export default function VideoEditor() {
     setLoading(false);
   };
 
-  const handleTimeUpdate = () => {
-    if (videoRef.current) {
-      setVideoTime(videoRef.current.currentTime); // Update video time
-    }
-  };
-
   const handleRangeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(event.target.value);
     if (videoRef.current) {
-      console.log(Math.floor(videoRef.current.duration));
-      videoRef.current.currentTime = value; // Update video time when slider changes
+      console.log(videoRef.current.currentTime);
+      videoRef.current.currentTime = value;
     }
   };
-
-  useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.addEventListener("timeupdate", handleTimeUpdate);
-    }
-
-    return () => {
-      if (videoRef.current) {
-        videoRef.current.removeEventListener("timeupdate", handleTimeUpdate);
-      }
-    };
-  }, []);
 
   return (
     <div className="m-5">
@@ -151,7 +133,6 @@ export default function VideoEditor() {
         <div>
           <VideoTimeLine
             handleRangeChange={handleRangeChange}
-            videoTime={videoTime}
             videoRef={videoRef}
           />
         </div>

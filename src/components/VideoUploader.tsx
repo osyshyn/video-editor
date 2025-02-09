@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { Button } from "@/components/ui/button";
@@ -12,15 +12,32 @@ export default function VideoEditor() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const messageRef = useRef<HTMLParagraphElement | null>(null);
 
-  const [loaded, setLoaded] = useState(false);
-  const [overlayText, setOverlayText] = useState("Ваш текст");
+  const [overlayText, setOverlayText] = useState("");
   const [textX, setTextX] = useState(10);
   const [textY, setTextY] = useState(10);
-  const [outputUrl, setOutputUrl] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [fontLoaded, setFontLoaded] = useState(false);
 
   useEffect(() => {
+    const load = async () => {
+      const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm";
+      const ffmpeg = ffmpegRef.current;
+      ffmpeg.on("log", ({ message }) => {
+        if (messageRef.current) messageRef.current.innerHTML = message;
+      });
+      await ffmpeg.load({
+        coreURL: await toBlobURL(
+          `${baseURL}/ffmpeg-core.js`,
+          "text/javascript"
+        ),
+        wasmURL: await toBlobURL(
+          `${baseURL}/ffmpeg-core.wasm`,
+          "application/wasm"
+        ),
+      });
+      loadFont();
+    };
+
     load();
   }, []);
 
@@ -32,23 +49,6 @@ export default function VideoEditor() {
     }
   }, [videoFile]);
 
-  const load = async () => {
-    const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm";
-    const ffmpeg = ffmpegRef.current;
-    ffmpeg.on("log", ({ message }) => {
-      if (messageRef.current) messageRef.current.innerHTML = message;
-    });
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-      wasmURL: await toBlobURL(
-        `${baseURL}/ffmpeg-core.wasm`,
-        "application/wasm"
-      ),
-    });
-    setLoaded(true);
-    loadFont();
-  };
-
   const loadFont = async () => {
     const ffmpeg = ffmpegRef.current;
     const fontData = await fetchFile(
@@ -59,12 +59,10 @@ export default function VideoEditor() {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    debugger;
     const file = e.target.files?.[0];
     console.log("Selected file:", file);
     if (file) {
       setVideoFile(file);
-      setOutputUrl(null);
       if (videoRef.current) {
         videoRef.current.src = URL.createObjectURL(file);
         console.log("Video source set:", videoRef.current.src);
@@ -73,7 +71,6 @@ export default function VideoEditor() {
   };
 
   const transcode = async () => {
-    debugger;
     if (!videoFile || !fontLoaded) return;
     setProcessing(true);
     const ffmpeg = ffmpegRef.current;
@@ -83,14 +80,6 @@ export default function VideoEditor() {
       "-i",
       "input.mp4",
       "-vf",
-      "scale=640:-1",
-      "resized.mp4",
-    ]);
-
-    await ffmpeg.exec([
-      "-i",
-      "resized.mp4",
-      "-vf",
       `drawtext=fontfile=/arial.ttf:text='${overlayText}':x=${textX}:y=${textY}:fontsize=24:fontcolor=white`,
       "output.mp4",
     ]);
@@ -98,7 +87,6 @@ export default function VideoEditor() {
     const data = (await ffmpeg.readFile("output.mp4")) as Uint8Array;
     const videoBlob = new Blob([data.buffer], { type: "video/mp4" });
     const videoUrl = URL.createObjectURL(videoBlob);
-    setOutputUrl(videoUrl);
 
     if (videoRef.current) {
       videoRef.current.src = videoUrl;
@@ -111,7 +99,6 @@ export default function VideoEditor() {
   const processVideo = async () => {
     if (!videoFile) return;
     setLoading(true);
-    await load();
 
     await ffmpegRef.current.writeFile("input.mp4", await fetchFile(videoFile));
     await ffmpegRef.current.exec([
@@ -139,8 +126,8 @@ export default function VideoEditor() {
     setLoading(false);
   };
 
-  const handleRangeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(event.target.value);
+  const handleRangeChange = (event: number) => {
+    const value = event;
     if (videoRef.current) {
       console.log(videoRef.current.currentTime);
       videoRef.current.currentTime = value;
@@ -219,7 +206,7 @@ export default function VideoEditor() {
             value={overlayText}
             onChange={(e) => setOverlayText(e.target.value)}
             className="mt-2 p-2 border rounded w-full"
-            placeholder="Введите текст для видео"
+            placeholder="Enter a text"
           />
           <div className="mt-2 flex space-x-4">
             <div>

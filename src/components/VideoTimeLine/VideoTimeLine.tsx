@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 interface IVideoTimelineProps {
-  handleRangeChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleRangeChange: (startTime: number, endTime: number) => void;
   videoRef: React.RefObject<HTMLVideoElement | null>;
 }
 
@@ -11,6 +11,13 @@ export default function VideoTimeLine({
 }: IVideoTimelineProps) {
   const [duration, setDuration] = useState(30);
   const [currentTime, setCurrentTime] = useState(0);
+  const [startTime, setStartTime] = useState(0);
+  const [endTime, setEndTime] = useState(30);
+  const timelineRef = useRef<HTMLDivElement | null>(null);
+  const isDraggingStart = useRef(false);
+  const isDraggingEnd = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartTime = useRef(0);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -18,6 +25,7 @@ export default function VideoTimeLine({
 
     const updateDuration = () => {
       setDuration(Math.floor(video.duration));
+      setEndTime(Math.floor(video.duration));
     };
 
     let intervalId: NodeJS.Timeout;
@@ -47,17 +55,111 @@ export default function VideoTimeLine({
     };
   }, [videoRef]);
 
+  const handleMouseMove = (event: React.MouseEvent) => {
+    if (!timelineRef.current) return;
+
+    const timeline = timelineRef.current;
+    const rect = timeline.getBoundingClientRect();
+    const newTime = Math.min(
+      Math.max(((event.clientX - rect.left) / rect.width) * duration, 0),
+      duration
+    );
+    setCurrentTime(newTime);
+    handleRangeChange(startTime, newTime);
+  };
+
+  const handleDragStart = (event: React.MouseEvent, isStart: boolean) => {
+    if (!timelineRef.current) return;
+
+    dragStartX.current = event.clientX;
+    dragStartTime.current = isStart ? startTime : endTime;
+
+    if (isStart) {
+      isDraggingStart.current = true;
+    } else {
+      isDraggingEnd.current = true;
+    }
+  };
+
+  const handleDragMove = (event: React.MouseEvent) => {
+    if (!timelineRef.current) return;
+
+    const deltaX = event.clientX - dragStartX.current;
+    const rect = timelineRef.current.getBoundingClientRect();
+    const deltaTime = (deltaX / rect.width) * duration;
+
+    if (isDraggingStart.current) {
+      const newStartTime = Math.max(
+        0,
+        Math.min(dragStartTime.current + deltaTime, endTime)
+      );
+      setStartTime(newStartTime);
+      handleRangeChange(newStartTime, endTime);
+    }
+
+    if (isDraggingEnd.current) {
+      const newEndTime = Math.max(
+        startTime,
+        Math.min(dragStartTime.current + deltaTime, duration)
+      );
+      setEndTime(newEndTime);
+      handleRangeChange(startTime, newEndTime);
+    }
+  };
+
+  const handleDragEnd = () => {
+    isDraggingStart.current = false;
+    isDraggingEnd.current = false;
+  };
+
   return (
     <div className="relative w-full flex justify-center items-center py-6 rounded">
-      <input
-        type="range"
-        min="0"
-        max={duration}
-        step="0.05"
-        value={currentTime}
-        onChange={handleRangeChange}
-        className="w-full main-timeline"
-      />
+      <div
+        ref={timelineRef}
+        className="w-full h-4 bg-gray-300 rounded cursor-pointer relative"
+        onClick={handleMouseMove}
+        onMouseMove={handleDragMove}
+        onMouseUp={handleDragEnd}
+        onMouseLeave={handleDragEnd}
+      >
+        <div
+          className="absolute top-0 left-0 h-4 bg-green-500"
+          style={{ width: `${(currentTime / duration) * 100}%` }}
+        />
+        <div
+          className="absolute top-0 left-0 h-4 bg-blue-500 opacity-50"
+          style={{
+            width: `${((endTime - startTime) / duration) * 100}%`,
+            left: `${(startTime / duration) * 100}%`,
+          }}
+        />
+        <div
+          className="absolute top-0"
+          style={{
+            left: `${(startTime / duration) * 100}%`,
+            width: "16px",
+            height: "16px",
+            backgroundColor: "red",
+            borderRadius: "50%",
+            transform: "translateX(-50%)",
+            cursor: "ew-resize",
+          }}
+          onMouseDown={(e) => handleDragStart(e, true)}
+        />
+        <div
+          className="absolute top-0"
+          style={{
+            left: `${(endTime / duration) * 100}%`,
+            width: "16px",
+            height: "16px",
+            backgroundColor: "red",
+            borderRadius: "50%",
+            transform: "translateX(-50%)",
+            cursor: "ew-resize",
+          }}
+          onMouseDown={(e) => handleDragStart(e, false)}
+        />
+      </div>
     </div>
   );
 }

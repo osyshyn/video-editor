@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 
 interface IVideoTimelineProps {
-  handleRangeChange: (startTime: number, endTime: number) => void;
+  handleRangeChange: (time: number) => void;
   videoRef: React.RefObject<HTMLVideoElement | null>;
 }
 
@@ -11,13 +11,10 @@ export default function VideoTimeLine({
 }: IVideoTimelineProps) {
   const [duration, setDuration] = useState(30);
   const [currentTime, setCurrentTime] = useState(0);
-  const [startTime, setStartTime] = useState(0);
-  const [endTime, setEndTime] = useState(30);
   const timelineRef = useRef<HTMLDivElement | null>(null);
-  const isDraggingStart = useRef(false);
-  const isDraggingEnd = useRef(false);
-  const dragStartX = useRef(0);
-  const dragStartTime = useRef(0);
+  const isDragging = useRef(false); // To track if we are dragging the timeline
+  const startX = useRef(0); // Store initial X position for dragging
+  const startWidth = useRef(0); // Store initial width of the timeline
 
   useEffect(() => {
     const video = videoRef.current;
@@ -25,7 +22,6 @@ export default function VideoTimeLine({
 
     const updateDuration = () => {
       setDuration(Math.floor(video.duration));
-      setEndTime(Math.floor(video.duration));
     };
 
     let intervalId: NodeJS.Timeout;
@@ -55,109 +51,60 @@ export default function VideoTimeLine({
     };
   }, [videoRef]);
 
-  const handleMouseMove = (event: React.MouseEvent) => {
+  const handleDragStart = (event: React.MouseEvent) => {
     if (!timelineRef.current) return;
 
-    const timeline = timelineRef.current;
-    const rect = timeline.getBoundingClientRect();
-    const newTime = Math.min(
-      Math.max(((event.clientX - rect.left) / rect.width) * duration, 0),
-      duration
-    );
+    // Prevent selection of the timeline and ensure only dragging is allowed
+    isDragging.current = true;
+    startX.current = event.clientX;
+    startWidth.current = timelineRef.current.getBoundingClientRect().width;
+  };
+
+  const handleDrag = (event: React.MouseEvent) => {
+    if (!isDragging.current || !timelineRef.current) return;
+
+    const deltaX = event.clientX - startX.current;
+    const newWidth = Math.max(startWidth.current + deltaX, 20); // Prevent it from becoming too small
+
+    timelineRef.current.style.width = `${newWidth}px`;
+
+    // Calculate the new current time based on the width of the timeline
+    const newTime =
+      (newWidth / timelineRef.current.getBoundingClientRect().width) * duration;
     setCurrentTime(newTime);
-    handleRangeChange(startTime, newTime);
-  };
-
-  const handleDragStart = (event: React.MouseEvent, isStart: boolean) => {
-    if (!timelineRef.current) return;
-
-    dragStartX.current = event.clientX;
-    dragStartTime.current = isStart ? startTime : endTime;
-
-    if (isStart) {
-      isDraggingStart.current = true;
-    } else {
-      isDraggingEnd.current = true;
-    }
-  };
-
-  const handleDragMove = (event: React.MouseEvent) => {
-    if (!timelineRef.current) return;
-
-    const deltaX = event.clientX - dragStartX.current;
-    const rect = timelineRef.current.getBoundingClientRect();
-    const deltaTime = (deltaX / rect.width) * duration;
-
-    if (isDraggingStart.current) {
-      const newStartTime = Math.max(
-        0,
-        Math.min(dragStartTime.current + deltaTime, endTime)
-      );
-      setStartTime(newStartTime);
-      handleRangeChange(newStartTime, endTime);
-    }
-
-    if (isDraggingEnd.current) {
-      const newEndTime = Math.max(
-        startTime,
-        Math.min(dragStartTime.current + deltaTime, duration)
-      );
-      setEndTime(newEndTime);
-      handleRangeChange(startTime, newEndTime);
-    }
+    handleRangeChange(newTime);
   };
 
   const handleDragEnd = () => {
-    isDraggingStart.current = false;
-    isDraggingEnd.current = false;
+    isDragging.current = false;
   };
 
   return (
     <div className="relative w-full flex justify-center items-center py-6 rounded">
       <div
         ref={timelineRef}
-        className="w-full h-4 bg-gray-300 rounded cursor-pointer relative"
-        onClick={handleMouseMove}
-        onMouseMove={handleDragMove}
-        onMouseUp={handleDragEnd}
-        onMouseLeave={handleDragEnd}
+        className="h-2 bg-gray-300 rounded cursor-ew-resize relative"
+        onMouseDown={handleDragStart} // Use mousedown for starting drag
+        onMouseMove={handleDrag}
+        onMouseUp={handleDragEnd} // End drag when mouse is released
+        onMouseLeave={handleDragEnd} // Ensure drag ends if mouse leaves
       >
         <div
-          className="absolute top-0 left-0 h-4 bg-green-500"
+          className="absolute top-0 left-0 h-2 bg-green-500"
           style={{ width: `${(currentTime / duration) * 100}%` }}
         />
         <div
-          className="absolute top-0 left-0 h-4 bg-blue-500 opacity-50"
-          style={{
-            width: `${((endTime - startTime) / duration) * 100}%`,
-            left: `${(startTime / duration) * 100}%`,
-          }}
-        />
-        <div
           className="absolute top-0"
           style={{
-            left: `${(startTime / duration) * 100}%`,
-            width: "16px",
-            height: "16px",
-            backgroundColor: "red",
-            borderRadius: "50%",
+            left: `${(currentTime / duration) * 100}%`,
+            width: "20px",
+            height: "8px",
+            backgroundColor: "#4caf50",
+            borderRadius: "4px",
             transform: "translateX(-50%)",
-            cursor: "ew-resize",
+            cursor: "pointer",
+            userSelect: "none",
           }}
-          onMouseDown={(e) => handleDragStart(e, true)}
-        />
-        <div
-          className="absolute top-0"
-          style={{
-            left: `${(endTime / duration) * 100}%`,
-            width: "16px",
-            height: "16px",
-            backgroundColor: "red",
-            borderRadius: "50%",
-            transform: "translateX(-50%)",
-            cursor: "ew-resize",
-          }}
-          onMouseDown={(e) => handleDragStart(e, false)}
         />
       </div>
     </div>

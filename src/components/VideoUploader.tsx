@@ -3,6 +3,7 @@ import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { Button } from "@/components/ui/button";
 import VideoTimeLine from "./VideoTimeLine/VideoTimeLine";
+import VideoTrimer from "./VideoTimeLine/VideoTrimer";
 
 export default function VideoEditor() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -11,6 +12,9 @@ export default function VideoEditor() {
   const ffmpegRef = useRef(new FFmpeg());
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const messageRef = useRef<HTMLParagraphElement | null>(null);
+
+  const [startTime, setStartTime] = useState(0);
+  const [endTime, setEndTime] = useState(30);
 
   const [overlayText, setOverlayText] = useState("");
   const [textX, setTextX] = useState(10);
@@ -66,6 +70,7 @@ export default function VideoEditor() {
       if (videoRef.current) {
         videoRef.current.src = URL.createObjectURL(file);
         console.log("Video source set:", videoRef.current.src);
+        setEndTime(Number(videoRef.current.duration));
       }
     }
   };
@@ -105,9 +110,9 @@ export default function VideoEditor() {
       "-i",
       "input.mp4",
       "-ss",
-      "00:00:02",
+      `${startTime}`,
       "-t",
-      "5",
+      `${endTime - startTime}`,
       "-c",
       "copy",
       "output.mp4",
@@ -195,6 +200,14 @@ export default function VideoEditor() {
           <VideoTimeLine
             handleRangeChange={handleRangeChange}
             videoRef={videoRef}
+          />
+          <VideoTrimer
+            handleRangeChange={handleRangeChange}
+            videoRef={videoRef}
+            setStartTime={setStartTime}
+            startTime={startTime}
+            endTime={endTime}
+            setEndTime={setEndTime}
           />
         </div>
       )}

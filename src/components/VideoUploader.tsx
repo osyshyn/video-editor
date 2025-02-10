@@ -2,49 +2,117 @@ import { useState, useRef, useEffect } from "react";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { Button } from "@/components/ui/button";
-import VideoTimeLine from "./VideoTimeLine";
+import VideoTimeLine from "./VideoTimeLine/VideoTimeLine";
+import VideoTrimer from "./VideoTimeLine/VideoTrimer";
 
 export default function VideoEditor() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  const [videoTime, setVideoTime] = useState(0); // Track current video time
+
   const ffmpegRef = useRef(new FFmpeg());
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const messageRef = useRef<HTMLParagraphElement | null>(null);
 
-  const load = async () => {
-    const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm";
+  const [startTime, setStartTime] = useState(0);
+  const [endTime, setEndTime] = useState(30);
+
+  const [overlayText, setOverlayText] = useState("");
+  const [textX, setTextX] = useState(10);
+  const [textY, setTextY] = useState(10);
+  const [processing, setProcessing] = useState(false);
+  const [fontLoaded, setFontLoaded] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm";
+      const ffmpeg = ffmpegRef.current;
+      ffmpeg.on("log", ({ message }) => {
+        if (messageRef.current) messageRef.current.innerHTML = message;
+      });
+      await ffmpeg.load({
+        coreURL: await toBlobURL(
+          `${baseURL}/ffmpeg-core.js`,
+          "text/javascript"
+        ),
+        wasmURL: await toBlobURL(
+          `${baseURL}/ffmpeg-core.wasm`,
+          "application/wasm"
+        ),
+      });
+      loadFont();
+    };
+
+    load();
+  }, []);
+
+  useEffect(() => {
+    if (videoFile && videoRef.current) {
+      const videoUrl = URL.createObjectURL(videoFile);
+      videoRef.current.src = videoUrl;
+      console.log("Updated video source:", videoUrl);
+    }
+  }, [videoFile]);
+
+  const loadFont = async () => {
     const ffmpeg = ffmpegRef.current;
-    ffmpeg.on("log", ({ message }) => {
-      if (messageRef.current) messageRef.current.innerHTML = message;
-    });
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-      wasmURL: await toBlobURL(
-        `${baseURL}/ffmpeg-core.wasm`,
-        "application/wasm"
-      ),
-    });
+    const fontData = await fetchFile(
+      "https://raw.githubusercontent.com/ffmpegwasm/testdata/master/arial.ttf"
+    );
+    await ffmpeg.writeFile("arial.ttf", fontData);
+    setFontLoaded(true);
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) setVideoFile(file);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    console.log("Selected file:", file);
+    if (file) {
+      setVideoFile(file);
+      if (videoRef.current) {
+        videoRef.current.src = URL.createObjectURL(file);
+        console.log("Video source set:", videoRef.current.src);
+        setEndTime(Number(videoRef.current.duration));
+      }
+    }
+  };
+
+  const transcode = async () => {
+    if (!videoFile || !fontLoaded) return;
+    setProcessing(true);
+    const ffmpeg = ffmpegRef.current;
+    await ffmpeg.writeFile("input.mp4", await fetchFile(videoFile));
+
+    await ffmpeg.exec([
+      "-i",
+      "input.mp4",
+      "-vf",
+      `drawtext=fontfile=/arial.ttf:text='${overlayText}':x=${textX}:y=${textY}:fontsize=24:fontcolor=white`,
+      "output.mp4",
+    ]);
+
+    const data = (await ffmpeg.readFile("output.mp4")) as Uint8Array;
+    const videoBlob = new Blob([data.buffer], { type: "video/mp4" });
+    const videoUrl = URL.createObjectURL(videoBlob);
+
+    if (videoRef.current) {
+      videoRef.current.src = videoUrl;
+    } else {
+      console.log("VideoRef: ", videoRef);
+    }
+    setProcessing(false);
   };
 
   const processVideo = async () => {
     if (!videoFile) return;
     setLoading(true);
-    await load();
 
     await ffmpegRef.current.writeFile("input.mp4", await fetchFile(videoFile));
     await ffmpegRef.current.exec([
       "-i",
       "input.mp4",
       "-ss",
-      "00:00:02",
+      `${startTime}`,
       "-t",
-      "5",
+      `${endTime - startTime}`,
       "-c",
       "copy",
       "output.mp4",
@@ -63,31 +131,13 @@ export default function VideoEditor() {
     setLoading(false);
   };
 
-  const handleTimeUpdate = () => {
+  const handleRangeChange = (event: number) => {
+    const value = event;
     if (videoRef.current) {
-      setVideoTime(videoRef.current.currentTime); // Update video time
+      console.log(videoRef.current.currentTime);
+      videoRef.current.currentTime = value;
     }
   };
-
-  const handleRangeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(event.target.value);
-    if (videoRef.current) {
-      console.log(Math.floor(videoRef.current.duration));
-      videoRef.current.currentTime = value; // Update video time when slider changes
-    }
-  };
-
-  useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.addEventListener("timeupdate", handleTimeUpdate);
-    }
-
-    return () => {
-      if (videoRef.current) {
-        videoRef.current.removeEventListener("timeupdate", handleTimeUpdate);
-      }
-    };
-  }, []);
 
   return (
     <div className="m-5">
@@ -121,7 +171,7 @@ export default function VideoEditor() {
             <input
               id="dropzone-file"
               type="file"
-              accept="video/mp4"
+              accept="video/*"
               className="hidden"
               onChange={handleFileChange}
             />
@@ -133,10 +183,8 @@ export default function VideoEditor() {
         <div className="relative p-5 rounded-2xl overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700 ">
           <video
             ref={videoRef}
-            src={URL.createObjectURL(videoFile)}
-            // src="http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
             controls
-            className="rounded-xl w-[640px] h-[360x]"
+            className="mt-4 w-full max-w-md"
           ></video>
         </div>
       )}
@@ -151,10 +199,56 @@ export default function VideoEditor() {
         <div>
           <VideoTimeLine
             handleRangeChange={handleRangeChange}
-            videoTime={videoTime}
             videoRef={videoRef}
           />
+          <VideoTrimer
+            handleRangeChange={handleRangeChange}
+            videoRef={videoRef}
+            setStartTime={setStartTime}
+            startTime={startTime}
+            endTime={endTime}
+            setEndTime={setEndTime}
+          />
         </div>
+      )}
+
+      {videoFile && (
+        <>
+          <input
+            type="text"
+            value={overlayText}
+            onChange={(e) => setOverlayText(e.target.value)}
+            className="mt-2 p-2 border rounded w-full"
+            placeholder="Enter a text"
+          />
+          <div className="mt-2 flex space-x-4">
+            <div>
+              <label className="block text-sm">Position X:</label>
+              <input
+                type="number"
+                value={textX}
+                onChange={(e) => setTextX(Number(e.target.value))}
+                className="p-2 border rounded w-24"
+              />
+            </div>
+            <div>
+              <label className="block text-sm">Position Y:</label>
+              <input
+                type="number"
+                value={textY}
+                onChange={(e) => setTextY(Number(e.target.value))}
+                className="p-2 border rounded w-24"
+              />
+            </div>
+          </div>
+          <button
+            onClick={transcode}
+            disabled={!videoFile || processing}
+            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded"
+          >
+            {processing ? "Processing..." : "Transcode Video"}
+          </button>
+        </>
       )}
     </div>
   );

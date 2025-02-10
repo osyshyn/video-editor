@@ -4,10 +4,15 @@ import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { Button } from "@/components/ui/button";
 import VideoTimeLine from "./VideoTimeLine/VideoTimeLine";
 import VideoTrimer from "./VideoTimeLine/VideoTrimer";
+import ImageOverlayControls from "./ImageOverlayControls";
 
 export default function VideoEditor() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageX, setImageX] = useState(10);
+  const [imageY, setImageY] = useState(10);
 
   const ffmpegRef = useRef(new FFmpeg());
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -97,6 +102,43 @@ export default function VideoEditor() {
       videoRef.current.src = videoUrl;
     } else {
       console.log("VideoRef: ", videoRef);
+    }
+    setProcessing(false);
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+    }
+  };
+
+  const addImageToVideo = async () => {
+    if (!videoFile || !imageFile) return;
+    setProcessing(true);
+    const ffmpeg = ffmpegRef.current;
+
+    await ffmpeg.writeFile("input.mp4", await fetchFile(videoFile));
+    await ffmpeg.writeFile("overlay.png", await fetchFile(imageFile));
+
+    await ffmpeg.exec([
+      "-i",
+      "input.mp4",
+      "-i",
+      "overlay.png",
+      "-filter_complex",
+      `[1:v]scale=100:100[ovr];[0:v][ovr]overlay=${imageX}:${imageY}:enable='between(t,${startTime},${endTime})'`,
+      "-c:a",
+      "copy",
+      "output.mp4",
+    ]);
+
+    const data = (await ffmpeg.readFile("output.mp4")) as Uint8Array;
+    const videoBlob = new Blob([data.buffer], { type: "video/mp4" });
+    const videoUrl = URL.createObjectURL(videoBlob);
+
+    if (videoRef.current) {
+      videoRef.current.src = videoUrl;
     }
     setProcessing(false);
   };
@@ -241,6 +283,21 @@ export default function VideoEditor() {
               />
             </div>
           </div>
+          <ImageOverlayControls
+            imageFile={imageFile}
+            handleImageChange={handleImageChange}
+            imageX={imageX}
+            imageY={imageY}
+            setImageX={setImageX}
+            setImageY={setImageY}
+          />
+          <button
+            onClick={addImageToVideo}
+            disabled={!videoFile || processing}
+            className="mt-4 bg-green-500 text-white px-4 py-2 rounded"
+          >
+            {processing ? "Processing..." : "Add Image to Video"}
+          </button>
           <button
             onClick={transcode}
             disabled={!videoFile || processing}

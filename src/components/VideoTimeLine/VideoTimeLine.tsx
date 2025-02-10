@@ -31,7 +31,7 @@ export default function VideoTimeLine({
           }
           return prev;
         });
-      }, 0);
+      }, 100);
     };
 
     video.addEventListener("loadedmetadata", updateDuration);
@@ -62,28 +62,61 @@ export default function VideoTimeLine({
   };
 
   return (
-    <div className="relative w-full flex justify-center items-center py-6 rounded">
+    <div className="relative w-full flex flex-col gap-2 py-6 rounded">
       <div
         ref={timelineRef}
-        className="w-full h-2 bg-gray-300 rounded cursor-pointer relative"
+        className="relative w-full bg-gray-300 rounded cursor-pointer border border-gray-400 overflow-hidden"
         onClick={handleMouseMove}
       >
         <div
-          className="absolute top-0 left-0 h-2 bg-green-500"
-          style={{ width: `${(currentTime / duration) * 100}%` }}
-        />
-        <div
-          className="absolute top-0"
+          className="absolute top-0 left-0 bg-green-500"
           style={{
-            left: `${(currentTime / duration) * 100}%`,
-            width: "20px",
-            height: "8px",
-            backgroundColor: "#4caf50",
-            borderRadius: "4px",
-            transform: "translateX(-50%)",
-            cursor: "pointer",
+            width: `${(currentTime / duration) * 100}%`,
+            height: "100%",
           }}
         />
+        <div className="relative flex items-end w-full h-6">
+          {Array.from({ length: duration * 2 + 1 }).map((_, index) => {
+            const timeLabel = (index / 2).toFixed(1);
+            return (
+              <div
+                key={index}
+                className="flex flex-col items-center"
+                style={{
+                  position: "absolute",
+                  left: `${(index / (duration * 2)) * 100}%`,
+                  transform: "translateX(-50%)",
+                }}
+              >
+                <div
+                  className="bg-gray-600"
+                  style={{
+                    width: "1px",
+                    height: index % 2 === 0 ? "10px" : "6px",
+                  }}
+                />
+                {index % 2 === 0 && (
+                  <span className="text-xs text-gray-900">{timeLabel}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div
+          className="absolute top-0 bottom-0 w-1 bg-green-700"
+          style={{
+            left: `${(currentTime / duration) * 100}%`,
+            transform: "translateX(-50%)",
+          }}
+        />
+
+        <div className="relative w-full flex flex-col gap-1 py-4">
+          {/* {timelines.map((timeline, index) => (
+            <div key={index} className="w-full h-3 bg-blue-300 rounded"></div>
+          ))} */}
+          <span className="text-gray-500 text-sm px-2">map</span>
+        </div>
       </div>
     </div>
   );

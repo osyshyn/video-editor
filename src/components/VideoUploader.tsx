@@ -1,11 +1,11 @@
-import { Button } from "@/components/ui/button";
-import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { useState, useRef, useEffect } from "react";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
-import { useEffect, useRef, useState } from "react";
-import ImageOverlayControls from "./ImageOverlayControls";
-import { Select } from "./ui/select";
+import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { Button } from "@/components/ui/button";
 import VideoTimeLine from "./VideoTimeLine/VideoTimeLine";
 import VideoTrimer from "./VideoTimeLine/VideoTrimer";
+import ImageOverlayControls from "./ImageOverlayControls";
+import { Select } from "./ui/select";
 
 interface TextOverlay {
   id: string;
@@ -20,6 +20,7 @@ export default function VideoEditor() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageURL, setImageURL] = useState<string>("");
   const [imageX, setImageX] = useState(10);
   const [imageY, setImageY] = useState(10);
   const [imageWidth, setImageWidth] = useState(100);
@@ -130,7 +131,20 @@ export default function VideoEditor() {
     if (!videoFile || !fontLoaded) return;
     setProcessing(true);
     const ffmpeg = ffmpegRef.current;
-    await ffmpeg.writeFile("input.mp4", await fetchFile(videoFile));
+
+    try {
+      (ffmpeg as any).FS("unlink", "input.mp4");
+    } catch (err) {
+      console.log("Error deleting input.mp4", err);
+    }
+    try {
+      (ffmpeg as any).FS("unlink", "output.mp4");
+    } catch (err) {
+      console.log("Error deleting output.mp4", err);
+    }
+
+    const videoData = await fetchFile(videoFile);
+    await ffmpeg.writeFile("input.mp4", videoData);
 
     const drawTextFilters = texts.map((item) => {
       const ffmpegColor = item.color.startsWith("#")
@@ -138,15 +152,12 @@ export default function VideoEditor() {
         : item.color;
       return `drawtext=fontfile=/arial.ttf:text='${item.content}':x=${item.x}:y=${item.y}:fontsize=${item.size}:fontcolor=${ffmpegColor}`;
     });
-    const vfFilter = drawTextFilters.join(",");
+    const execArgs =
+      drawTextFilters.length > 0
+        ? ["-i", "input.mp4", "-vf", drawTextFilters.join(","), "output.mp4"]
+        : ["-i", "input.mp4", "output.mp4"];
 
-    await ffmpeg.exec([
-      "-i",
-      "input.mp4",
-      "-vf",
-      vfFilter,
-      "output.mp4",
-    ]);
+    await ffmpeg.exec(execArgs);
 
     const data = (await ffmpeg.readFile("output.mp4")) as Uint8Array;
     const videoBlob = new Blob([data.buffer], { type: "video/mp4" });
@@ -164,12 +175,14 @@ export default function VideoEditor() {
     const file = e.target.files?.[0];
     if (file) {
       setImageFile(file);
+      setImageURL(URL.createObjectURL(file));
       setImageOverlayActive(false);
     }
   };
 
   const addImageToVideo = () => {
     if (!videoFile || !imageFile) return;
+    console.log("Активуємо overlay для зображення", imageFile);
     setImageOverlayActive(true);
   };
 

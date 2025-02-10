@@ -25,7 +25,7 @@ export default function SidebarLayout({
       {children}
 
       {/* Navigation + Drawer */}
-      <div className="pointer-events-none fixed bottom-0 left-0 z-50 w-full lg:top-0 lg:h-full lg:w-auto">
+      <div className="fixed bottom-0 left-0 z-50 w-full lg:top-0 lg:h-full lg:w-auto">
         <div className="flex w-full flex-col-reverse lg:h-full lg:w-auto lg:flex-row">
           <div className="z-20 border-t bg-background lg:h-full lg:border-r lg:border-t-0">
             {slots.navigation}

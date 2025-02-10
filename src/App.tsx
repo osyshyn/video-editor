@@ -1,17 +1,43 @@
+import { useState } from "react";
 import "./App.css";
 import SidebarLayout from "./components/layout/SidebarLayout";
+import { Navigation } from "./components/SideBar/Navigation";
 import VideoEditor from "./components/VideoUploader";
+import { Drawer } from "./components/SideBar/Drawer";
+import { Media } from "./components/SideBar/Media";
+import { TextDrawer } from "./components/SideBar/Text";
 
 function App() {
+  const [selectedItem, setSelectedItem] = useState<string>("Media");
+
+  console.log("selectedItem", selectedItem);
+
+  const renderDrawerContent = () => {
+    switch (selectedItem) {
+      case "Media":
+        return <Media />;
+      case "Layers":
+        return <Media />;
+      case "Text":
+        return <TextDrawer />;
+      case "Videos":
+        return <Media />;
+      case "Images":
+        return <Media />;
+      default:
+        return <Media />;
+    }
+  };
+
   return (
     <SidebarLayout
       slots={{
         navigation: (
-          <div className="bg-gray-100 text-center h-full">Navigation</div>
+          <div className="bg-gray-100 text-center h-full">
+            <Navigation onSelect={setSelectedItem} />
+          </div>
         ),
-        assetsDrawer: (
-          <div className="bg-gray-200 text-center h-full">Assets Drawer</div>
-        ),
+        assetsDrawer: <Drawer>{renderDrawerContent()}</Drawer>,
         rightSidebar: (
           <div className="bg-gray-200 text-center h-full">Right Sidebar</div>
         ),

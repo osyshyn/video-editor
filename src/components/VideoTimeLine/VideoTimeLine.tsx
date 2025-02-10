@@ -12,9 +12,6 @@ export default function VideoTimeLine({
   const [duration, setDuration] = useState(30);
   const [currentTime, setCurrentTime] = useState(0);
   const timelineRef = useRef<HTMLDivElement | null>(null);
-  const isDragging = useRef(false); // To track if we are dragging the timeline
-  const startX = useRef(0); // Store initial X position for dragging
-  const startWidth = useRef(0); // Store initial width of the timeline
 
   useEffect(() => {
     const video = videoRef.current;
@@ -51,43 +48,25 @@ export default function VideoTimeLine({
     };
   }, [videoRef]);
 
-  const handleDragStart = (event: React.MouseEvent) => {
+  const handleMouseMove = (event: React.MouseEvent) => {
     if (!timelineRef.current) return;
 
-    // Prevent selection of the timeline and ensure only dragging is allowed
-    isDragging.current = true;
-    startX.current = event.clientX;
-    startWidth.current = timelineRef.current.getBoundingClientRect().width;
-  };
-
-  const handleDrag = (event: React.MouseEvent) => {
-    if (!isDragging.current || !timelineRef.current) return;
-
-    const deltaX = event.clientX - startX.current;
-    const newWidth = Math.max(startWidth.current + deltaX, 20); // Prevent it from becoming too small
-
-    timelineRef.current.style.width = `${newWidth}px`;
-
-    // Calculate the new current time based on the width of the timeline
-    const newTime =
-      (newWidth / timelineRef.current.getBoundingClientRect().width) * duration;
+    const timeline = timelineRef.current;
+    const rect = timeline.getBoundingClientRect();
+    const newTime = Math.min(
+      Math.max(((event.clientX - rect.left) / rect.width) * duration, 0),
+      duration
+    );
     setCurrentTime(newTime);
     handleRangeChange(newTime);
-  };
-
-  const handleDragEnd = () => {
-    isDragging.current = false;
   };
 
   return (
     <div className="relative w-full flex justify-center items-center py-6 rounded">
       <div
         ref={timelineRef}
-        className="h-2 bg-gray-300 rounded cursor-ew-resize relative"
-        onMouseDown={handleDragStart} // Use mousedown for starting drag
-        onMouseMove={handleDrag}
-        onMouseUp={handleDragEnd} // End drag when mouse is released
-        onMouseLeave={handleDragEnd} // Ensure drag ends if mouse leaves
+        className="w-full h-2 bg-gray-300 rounded cursor-pointer relative"
+        onClick={handleMouseMove}
       >
         <div
           className="absolute top-0 left-0 h-2 bg-green-500"
@@ -103,7 +82,6 @@ export default function VideoTimeLine({
             borderRadius: "4px",
             transform: "translateX(-50%)",
             cursor: "pointer",
-            userSelect: "none",
           }}
         />
       </div>

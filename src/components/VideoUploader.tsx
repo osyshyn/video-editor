@@ -1,18 +1,30 @@
-import { useState, useRef, useEffect } from "react";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
-import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { Button } from "@/components/ui/button";
+import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { fetchFile, toBlobURL } from "@ffmpeg/util";
+import { useEffect, useRef, useState } from "react";
+import ImageOverlayControls from "./ImageOverlayControls";
+import { Select } from "./ui/select";
 import VideoTimeLine from "./VideoTimeLine/VideoTimeLine";
 import VideoTrimer from "./VideoTimeLine/VideoTrimer";
-import ImageOverlayControls from "./ImageOverlayControls";
+
+interface TextOverlay {
+  id: string;
+  content: string;
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+}
 
 export default function VideoEditor() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageX, setImageX] = useState(10);
   const [imageY, setImageY] = useState(10);
+  const [imageWidth, setImageWidth] = useState(100);
+  const [imageHeight, setImageHeight] = useState(100);
+  const [imageOverlayActive, setImageOverlayActive] = useState(false);
 
   const ffmpegRef = useRef(new FFmpeg());
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -20,12 +32,13 @@ export default function VideoEditor() {
 
   const [startTime, setStartTime] = useState(0);
   const [endTime, setEndTime] = useState(30);
+  const [texts, setTexts] = useState<TextOverlay[]>([]);
+  const [activeTextId, setActiveTextId] = useState<string | null>(null);
 
-  const [overlayText, setOverlayText] = useState("");
-  const [textX, setTextX] = useState(10);
-  const [textY, setTextY] = useState(10);
   const [processing, setProcessing] = useState(false);
   const [fontLoaded, setFontLoaded] = useState(false);
+
+  const videoContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -35,18 +48,11 @@ export default function VideoEditor() {
         if (messageRef.current) messageRef.current.innerHTML = message;
       });
       await ffmpeg.load({
-        coreURL: await toBlobURL(
-          `${baseURL}/ffmpeg-core.js`,
-          "text/javascript"
-        ),
-        wasmURL: await toBlobURL(
-          `${baseURL}/ffmpeg-core.wasm`,
-          "application/wasm"
-        ),
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
       });
       loadFont();
     };
-
     load();
   }, []);
 
@@ -80,17 +86,65 @@ export default function VideoEditor() {
     }
   };
 
+  const handleClickAddText = () => {
+    const newText: TextOverlay = {
+      id: Date.now().toString(),
+      content: "",
+      x: 50,
+      y: 50,
+      size: 24,
+      color: "#ffffff",
+    };
+    setTexts((prev) => [...prev, newText]);
+    setActiveTextId(newText.id);
+  };
+
+  const updateText = (id: string, newData: Partial<TextOverlay>) => {
+    setTexts((prev) =>
+      prev.map((text) => (text.id === id ? { ...text, ...newData } : text))
+    );
+  };
+
+  const handleTextDragEnd = (e: React.DragEvent<HTMLDivElement>, id: string) => {
+    if (videoContainerRef.current) {
+      const containerRect = videoContainerRef.current.getBoundingClientRect();
+      const newX = e.clientX - containerRect.left;
+      const newY = e.clientY - containerRect.top;
+      updateText(id, { x: newX, y: newY });
+      console.log(`Нова позиція для ${id}: x = ${newX}, y = ${newY}`);
+    }
+  };
+
+  const handleImageDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+    if (videoContainerRef.current) {
+      const rect = videoContainerRef.current.getBoundingClientRect();
+      const newX = e.clientX - rect.left;
+      const newY = e.clientY - rect.top;
+      setImageX(newX);
+      setImageY(newY);
+      console.log(`Нова позиція зображення: x = ${newX}, y = ${newY}`);
+    }
+  };
+
   const transcode = async () => {
     if (!videoFile || !fontLoaded) return;
     setProcessing(true);
     const ffmpeg = ffmpegRef.current;
     await ffmpeg.writeFile("input.mp4", await fetchFile(videoFile));
 
+    const drawTextFilters = texts.map((item) => {
+      const ffmpegColor = item.color.startsWith("#")
+        ? item.color.replace("#", "0x")
+        : item.color;
+      return `drawtext=fontfile=/arial.ttf:text='${item.content}':x=${item.x}:y=${item.y}:fontsize=${item.size}:fontcolor=${ffmpegColor}`;
+    });
+    const vfFilter = drawTextFilters.join(",");
+
     await ffmpeg.exec([
       "-i",
       "input.mp4",
       "-vf",
-      `drawtext=fontfile=/arial.ttf:text='${overlayText}':x=${textX}:y=${textY}:fontsize=24:fontcolor=white`,
+      vfFilter,
       "output.mp4",
     ]);
 
@@ -110,37 +164,13 @@ export default function VideoEditor() {
     const file = e.target.files?.[0];
     if (file) {
       setImageFile(file);
+      setImageOverlayActive(false);
     }
   };
 
-  const addImageToVideo = async () => {
+  const addImageToVideo = () => {
     if (!videoFile || !imageFile) return;
-    setProcessing(true);
-    const ffmpeg = ffmpegRef.current;
-
-    await ffmpeg.writeFile("input.mp4", await fetchFile(videoFile));
-    await ffmpeg.writeFile("overlay.png", await fetchFile(imageFile));
-
-    await ffmpeg.exec([
-      "-i",
-      "input.mp4",
-      "-i",
-      "overlay.png",
-      "-filter_complex",
-      `[1:v]scale=100:100[ovr];[0:v][ovr]overlay=${imageX}:${imageY}:enable='between(t,${startTime},${endTime})'`,
-      "-c:a",
-      "copy",
-      "output.mp4",
-    ]);
-
-    const data = (await ffmpeg.readFile("output.mp4")) as Uint8Array;
-    const videoBlob = new Blob([data.buffer], { type: "video/mp4" });
-    const videoUrl = URL.createObjectURL(videoBlob);
-
-    if (videoRef.current) {
-      videoRef.current.src = videoUrl;
-    }
-    setProcessing(false);
+    setImageOverlayActive(true);
   };
 
   const processVideo = async () => {
@@ -174,10 +204,9 @@ export default function VideoEditor() {
   };
 
   const handleRangeChange = (event: number) => {
-    const value = event;
     if (videoRef.current) {
       console.log(videoRef.current.currentTime);
-      videoRef.current.currentTime = value;
+      videoRef.current.currentTime = event;
     }
   };
 
@@ -222,13 +251,65 @@ export default function VideoEditor() {
       )}
 
       {videoFile && (
-        <div className="relative p-5 rounded-2xl overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700 ">
-          <video
-            ref={videoRef}
-            controls
-            className="mt-4 w-full max-w-md"
-          ></video>
+        <div
+          ref={videoContainerRef}
+          className="relative p-5 rounded-2xl overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700"
+        >
+          <video ref={videoRef} controls className="mt-4 w-full max-w-md"></video>
+          {texts.map((text) => (
+            <div
+              key={text.id}
+              draggable
+              onDragEnd={(e) => handleTextDragEnd(e, text.id)}
+              onClick={() => setActiveTextId(text.id)}
+              style={{
+                position: "absolute",
+                left: text.x,
+                top: text.y,
+                padding: "4px",
+                borderRadius: "4px",
+                cursor: "move",
+                outline: activeTextId === text.id ? "1px solid blue" : "none",
+              }}
+            >
+              <input
+                type="text"
+                value={text.content}
+                onChange={(e) => updateText(text.id, { content: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                className="p-1 border-0 bg-transparent"
+                style={{ color: text.color, fontSize: text.size }}
+                placeholder="Enter text"
+              />
+            </div>
+          ))}
+          {imageOverlayActive && imageFile && (
+            <div
+              draggable
+              onDragEnd={handleImageDragEnd}
+              style={{
+                position: "absolute",
+                left: imageX,
+                top: imageY,
+                width: imageWidth,
+                height: imageHeight,
+                cursor: "move",
+              }}
+            >
+              <img
+                src={URL.createObjectURL(imageFile)}
+                alt="overlay"
+                className="w-full h-full object-contain"
+              />
+            </div>
+          )}
         </div>
+      )}
+
+      <Select></Select>
+
+      {videoFile && (
+        <Button onClick={handleClickAddText}>Add Text</Button>
       )}
 
       {videoFile && (
@@ -239,10 +320,7 @@ export default function VideoEditor() {
 
       {videoFile && (
         <div>
-          <VideoTimeLine
-            handleRangeChange={handleRangeChange}
-            videoRef={videoRef}
-          />
+          <VideoTimeLine handleRangeChange={handleRangeChange} videoRef={videoRef} />
           <VideoTrimer
             handleRangeChange={handleRangeChange}
             videoRef={videoRef}
@@ -254,12 +332,72 @@ export default function VideoEditor() {
         </div>
       )}
 
+      {videoFile && activeTextId && (
+        <div className="mt-2 flex items-center space-x-4">
+          <div>
+            <label className="block text-sm">Font Size:</label>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() =>
+                  activeTextId &&
+                  updateText(
+                    activeTextId,
+                    { size: Math.max(1, (texts.find((t) => t.id === activeTextId)?.size || 0) - 1) }
+                  )
+                }
+                className="px-2 py-1 border rounded"
+              >
+                -
+              </button>
+              <select
+                value={texts.find((t) => t.id === activeTextId)?.size}
+                onChange={(e) =>
+                  updateText(activeTextId, { size: Number(e.target.value) })
+                }
+                className="px-2 py-1 border rounded"
+              >
+                {[12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 56, 64, 72, 80, 96, 128, 200].map(
+                  (size) => (
+                    <option key={size} value={size}>
+                      {size}px
+                    </option>
+                  )
+                )}
+              </select>
+              <button
+                onClick={() =>
+                  activeTextId &&
+                  updateText(
+                    activeTextId,
+                    { size: Math.min(200, (texts.find((t) => t.id === activeTextId)?.size || 0) + 1) }
+                  )
+                }
+                className="px-2 py-1 border rounded"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm">Text Color:</label>
+            <input
+              type="color"
+              value={texts.find((t) => t.id === activeTextId)?.color}
+              onChange={(e) => updateText(activeTextId, { color: e.target.value })}
+              className="w-10 h-10 p-0 border-0"
+            />
+          </div>
+        </div>
+      )}
+
       {videoFile && (
         <>
           <input
             type="text"
-            value={overlayText}
-            onChange={(e) => setOverlayText(e.target.value)}
+            value={texts.find((t) => t.id === activeTextId)?.content || ""}
+            onChange={(e) =>
+              activeTextId && updateText(activeTextId, { content: e.target.value })
+            }
             className="mt-2 p-2 border rounded w-full"
             placeholder="Enter a text"
           />
@@ -268,8 +406,11 @@ export default function VideoEditor() {
               <label className="block text-sm">Position X:</label>
               <input
                 type="number"
-                value={textX}
-                onChange={(e) => setTextX(Number(e.target.value))}
+                value={texts.find((t) => t.id === activeTextId)?.x || 0}
+                onChange={(e) =>
+                  activeTextId &&
+                  updateText(activeTextId, { x: Number(e.target.value) })
+                }
                 className="p-2 border rounded w-24"
               />
             </div>
@@ -277,8 +418,11 @@ export default function VideoEditor() {
               <label className="block text-sm">Position Y:</label>
               <input
                 type="number"
-                value={textY}
-                onChange={(e) => setTextY(Number(e.target.value))}
+                value={texts.find((t) => t.id === activeTextId)?.y || 0}
+                onChange={(e) =>
+                  activeTextId &&
+                  updateText(activeTextId, { y: Number(e.target.value) })
+                }
                 className="p-2 border rounded w-24"
               />
             </div>
@@ -293,10 +437,10 @@ export default function VideoEditor() {
           />
           <button
             onClick={addImageToVideo}
-            disabled={!videoFile || processing}
+            disabled={!videoFile || !imageFile || processing}
             className="mt-4 bg-green-500 text-white px-4 py-2 rounded"
           >
-            {processing ? "Processing..." : "Add Image to Video"}
+            Add Image to Video
           </button>
           <button
             onClick={transcode}

@@ -49,8 +49,14 @@ export default function VideoEditor() {
         if (messageRef.current) messageRef.current.innerHTML = message;
       });
       await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+        coreURL: await toBlobURL(
+          `${baseURL}/ffmpeg-core.js`,
+          "text/javascript"
+        ),
+        wasmURL: await toBlobURL(
+          `${baseURL}/ffmpeg-core.wasm`,
+          "application/wasm"
+        ),
       });
       loadFont();
     };
@@ -106,13 +112,15 @@ export default function VideoEditor() {
     );
   };
 
-  const handleTextDragEnd = (e: React.DragEvent<HTMLDivElement>, id: string) => {
+  const handleTextDragEnd = (
+    e: React.DragEvent<HTMLDivElement>,
+    id: string
+  ) => {
     if (videoContainerRef.current) {
       const containerRect = videoContainerRef.current.getBoundingClientRect();
       const newX = e.clientX - containerRect.left;
       const newY = e.clientY - containerRect.top;
       updateText(id, { x: newX, y: newY });
-      console.log(`Нова позиція для ${id}: x = ${newX}, y = ${newY}`);
     }
   };
 
@@ -123,7 +131,6 @@ export default function VideoEditor() {
       const newY = e.clientY - rect.top;
       setImageX(newX);
       setImageY(newY);
-      console.log(`Нова позиція зображення: x = ${newX}, y = ${newY}`);
     }
   };
 
@@ -182,7 +189,6 @@ export default function VideoEditor() {
 
   const addImageToVideo = () => {
     if (!videoFile || !imageFile) return;
-    console.log("Активуємо overlay для зображення", imageFile);
     setImageOverlayActive(true);
   };
 
@@ -268,7 +274,11 @@ export default function VideoEditor() {
           ref={videoContainerRef}
           className="relative p-5 rounded-2xl overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700"
         >
-          <video ref={videoRef} controls className="mt-4 w-full max-w-md"></video>
+          <video
+            ref={videoRef}
+            controls
+            className="mt-4 w-full max-w-md"
+          ></video>
           {texts.map((text) => (
             <div
               key={text.id}
@@ -288,7 +298,9 @@ export default function VideoEditor() {
               <input
                 type="text"
                 value={text.content}
-                onChange={(e) => updateText(text.id, { content: e.target.value })}
+                onChange={(e) =>
+                  updateText(text.id, { content: e.target.value })
+                }
                 onClick={(e) => e.stopPropagation()}
                 className="p-1 border-0 bg-transparent"
                 style={{ color: text.color, fontSize: text.size }}
@@ -321,9 +333,7 @@ export default function VideoEditor() {
 
       <Select></Select>
 
-      {videoFile && (
-        <Button onClick={handleClickAddText}>Add Text</Button>
-      )}
+      {videoFile && <Button onClick={handleClickAddText}>Add Text</Button>}
 
       {videoFile && (
         <Button onClick={processVideo} disabled={loading}>
@@ -333,7 +343,10 @@ export default function VideoEditor() {
 
       {videoFile && (
         <div>
-          <VideoTimeLine handleRangeChange={handleRangeChange} videoRef={videoRef} />
+          <VideoTimeLine
+            handleRangeChange={handleRangeChange}
+            videoRef={videoRef}
+          />
           <VideoTrimer
             handleRangeChange={handleRangeChange}
             videoRef={videoRef}
@@ -353,10 +366,12 @@ export default function VideoEditor() {
               <button
                 onClick={() =>
                   activeTextId &&
-                  updateText(
-                    activeTextId,
-                    { size: Math.max(1, (texts.find((t) => t.id === activeTextId)?.size || 0) - 1) }
-                  )
+                  updateText(activeTextId, {
+                    size: Math.max(
+                      1,
+                      (texts.find((t) => t.id === activeTextId)?.size || 0) - 1
+                    ),
+                  })
                 }
                 className="px-2 py-1 border rounded"
               >
@@ -369,21 +384,24 @@ export default function VideoEditor() {
                 }
                 className="px-2 py-1 border rounded"
               >
-                {[12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 56, 64, 72, 80, 96, 128, 200].map(
-                  (size) => (
-                    <option key={size} value={size}>
-                      {size}px
-                    </option>
-                  )
-                )}
+                {[
+                  12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 56, 64, 72, 80, 96,
+                  128, 200,
+                ].map((size) => (
+                  <option key={size} value={size}>
+                    {size}px
+                  </option>
+                ))}
               </select>
               <button
                 onClick={() =>
                   activeTextId &&
-                  updateText(
-                    activeTextId,
-                    { size: Math.min(200, (texts.find((t) => t.id === activeTextId)?.size || 0) + 1) }
-                  )
+                  updateText(activeTextId, {
+                    size: Math.min(
+                      200,
+                      (texts.find((t) => t.id === activeTextId)?.size || 0) + 1
+                    ),
+                  })
                 }
                 className="px-2 py-1 border rounded"
               >
@@ -396,7 +414,9 @@ export default function VideoEditor() {
             <input
               type="color"
               value={texts.find((t) => t.id === activeTextId)?.color}
-              onChange={(e) => updateText(activeTextId, { color: e.target.value })}
+              onChange={(e) =>
+                updateText(activeTextId, { color: e.target.value })
+              }
               className="w-10 h-10 p-0 border-0"
             />
           </div>
@@ -409,7 +429,8 @@ export default function VideoEditor() {
             type="text"
             value={texts.find((t) => t.id === activeTextId)?.content || ""}
             onChange={(e) =>
-              activeTextId && updateText(activeTextId, { content: e.target.value })
+              activeTextId &&
+              updateText(activeTextId, { content: e.target.value })
             }
             className="mt-2 p-2 border rounded w-full"
             placeholder="Enter a text"

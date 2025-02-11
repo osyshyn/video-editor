@@ -230,9 +230,9 @@ export default function VideoEditor() {
   };
 
   return (
-    <div className="m-5">
+    <div className="flex ml-[400px] flex-col items-center justify-center h-full w-full">
       {!videoFile && (
-        <div className="absolute right-[50%] top-[50%] flex items-center justify-center w-[300px] transform translate-x-1/2 translate-y-[-50%]">
+        <div className="absolute flex items-center justify-center w-[300px] transform translate-x-1/2 translate-y-[-50%] right-[50%] top-[50%]">
           <label
             htmlFor="dropzone-file"
             className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600"
@@ -272,12 +272,12 @@ export default function VideoEditor() {
       {videoFile && (
         <div
           ref={videoContainerRef}
-          className="relative p-5 rounded-2xl overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700"
+          className="relative p-5 rounded-2xl overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700 flex flex-col items-center"
         >
           <video
             ref={videoRef}
             controls
-            className="mt-4 w-full max-w-md"
+            className="rounded-xl w-[640px] h-[360px]"
           ></video>
           {texts.map((text) => (
             <div
@@ -342,7 +342,7 @@ export default function VideoEditor() {
       )}
 
       {videoFile && (
-        <div>
+        <div className="flex flex-col w-[60%]">
           <VideoTimeLine
             handleRangeChange={handleRangeChange}
             videoRef={videoRef}
@@ -425,43 +425,7 @@ export default function VideoEditor() {
 
       {videoFile && (
         <>
-          <input
-            type="text"
-            value={texts.find((t) => t.id === activeTextId)?.content || ""}
-            onChange={(e) =>
-              activeTextId &&
-              updateText(activeTextId, { content: e.target.value })
-            }
-            className="mt-2 p-2 border rounded w-full"
-            placeholder="Enter a text"
-          />
-          <div className="mt-2 flex space-x-4">
-            <div>
-              <label className="block text-sm">Position X:</label>
-              <input
-                type="number"
-                value={texts.find((t) => t.id === activeTextId)?.x || 0}
-                onChange={(e) =>
-                  activeTextId &&
-                  updateText(activeTextId, { x: Number(e.target.value) })
-                }
-                className="p-2 border rounded w-24"
-              />
-            </div>
-            <div>
-              <label className="block text-sm">Position Y:</label>
-              <input
-                type="number"
-                value={texts.find((t) => t.id === activeTextId)?.y || 0}
-                onChange={(e) =>
-                  activeTextId &&
-                  updateText(activeTextId, { y: Number(e.target.value) })
-                }
-                className="p-2 border rounded w-24"
-              />
-            </div>
-          </div>
-          <ImageOverlayControls
+          {/* <ImageOverlayControls
             imageFile={imageFile}
             handleImageChange={handleImageChange}
             imageX={imageX}
@@ -475,7 +439,7 @@ export default function VideoEditor() {
             className="mt-4 bg-green-500 text-white px-4 py-2 rounded"
           >
             Add Image to Video
-          </button>
+          </button> */}
           <button
             onClick={transcode}
             disabled={!videoFile || processing}

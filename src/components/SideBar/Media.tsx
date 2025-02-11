@@ -1,19 +1,34 @@
-import { FC, useState } from "react";
+import { FC } from "react";
+import { useMedia } from "../context/MediaContextType";
 
-interface Props {}
+export const Media: FC = () => {
+  const { mediaFiles, addMedia, selectMedia, deselectMedia, selectedMedia } =
+    useMedia();
 
-export const Media: FC<Props> = () => {
-  const [mediaFiles, setMediaFiles] = useState<string[]>([]);
+  console.log("Selected media:", selectedMedia);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
       const newMediaFiles: string[] = [];
       Array.from(files).forEach((file) => {
-        const fileURL = URL.createObjectURL(file);
-        newMediaFiles.push(fileURL);
+        if (file.type.startsWith("video/")) {
+          const fileURL = URL.createObjectURL(file);
+          newMediaFiles.push(fileURL);
+        }
       });
-      setMediaFiles((prev) => [...prev, ...newMediaFiles]);
+      addMedia(newMediaFiles);
+    }
+  };
+
+  const toggleSelection = (media: string) => {
+    console.log("Toggling selection for:", media);
+    if (selectedMedia.includes(media)) {
+      deselectMedia(media);
+      console.log("Deselecting:", media);
+    } else {
+      selectMedia(media);
+      console.log("Selecting:", media);
     }
   };
 
@@ -24,12 +39,12 @@ export const Media: FC<Props> = () => {
           htmlFor="media-upload"
           className="cursor-pointer text-white bg-blue-500 hover:bg-blue-600 py-2 px-4 rounded-lg shadow-md transition"
         >
-          Upload Media
+          Upload Video
         </label>
         <input
           id="media-upload"
           type="file"
-          accept="image/*,video/*"
+          accept="video/*"
           multiple
           className="hidden"
           onChange={handleFileChange}
@@ -40,20 +55,20 @@ export const Media: FC<Props> = () => {
           <div
             key={index}
             className="relative overflow-hidden rounded-lg shadow-lg bg-white"
+            onClick={() => toggleSelection(file)}
           >
-            {file.endsWith(".mp4") || file.endsWith(".mov") ? (
-              <video className="w-full h-auto rounded-lg" controls>
-                <source src={file} type="video/mp4" />
-                <source src={file} type="video/quicktime" />
-                Your browser does not support the video tag.
-              </video>
-            ) : (
-              <img
-                className="w-full h-auto rounded-lg"
-                src={file}
-                alt={`media-${index}`}
-              />
-            )}
+            <div
+              className={`absolute top-2 right-2 text-white ${
+                selectedMedia.includes(file) ? "bg-blue-500" : "bg-gray-500"
+              }`}
+            >
+              {selectedMedia.includes(file) ? "Selected" : "Select"}
+            </div>
+            <video className="w-full h-auto rounded-lg" controls>
+              <source src={file} type="video/mp4" />
+              <source src={file} type="video/quicktime" />
+              Your browser does not support the video tag.
+            </video>
           </div>
         ))}
       </div>

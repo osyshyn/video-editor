@@ -1,4 +1,6 @@
 import React, { FC, useState } from "react";
+import { useTextOverlay } from "../context/TextOverlayContext";
+import { Button } from "../ui/button";
 
 interface TextDrawerProps {
   onTextChange: (text: string) => void;
@@ -9,6 +11,15 @@ const TextDrawer: FC<TextDrawerProps> = ({
   onTextChange,
   onPositionChange,
 }) => {
+  const {
+    addText,
+    texts,
+    activeTextId,
+    setActiveTextId,
+    updateText,
+    isVideoFile,
+  } = useTextOverlay();
+
   const [text, setText] = useState<string>("");
   const [positionX, setPositionX] = useState<number>(0);
   const [positionY, setPositionY] = useState<number>(0);
@@ -35,45 +46,125 @@ const TextDrawer: FC<TextDrawerProps> = ({
   };
 
   return (
-    <div className=" p-6 rounded-lg shadow-lg w-72 space-y-4">
-      <h2 className="text-2xl text-white font-semibold">Text Drawer</h2>
-      <div>
-        <label htmlFor="text" className="text-white text-sm">
-          Text:
-        </label>
-        <input
-          type="text"
-          id="text"
-          value={text}
-          onChange={handleTextChange}
-          className="mt-2 w-full p-3 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Enter text"
-        />
-      </div>
-      <div>
-        <label htmlFor="positionX" className="text-white text-sm">
-          Position X:
-        </label>
-        <input
-          type="number"
-          id="positionX"
-          value={positionX}
-          onChange={handlePositionXChange}
-          className="mt-2 w-full p-3 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-      <div>
-        <label htmlFor="positionY" className="text-white text-sm">
-          Position Y:
-        </label>
-        <input
-          type="number"
-          id="positionY"
-          value={positionY}
-          onChange={handlePositionYChange}
-          className="mt-2 w-full p-3 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
+    <div className="flex flex-col">
+      <h1 className="text-3xl font-bold text-white">Add Text</h1>
+      {isVideoFile ? (
+        <div className="p-6 rounded-lg shadow-lg w-80 space-y-6 bg-gray-800 text-white mt-10">
+          <Button
+            onClick={addText}
+            className="w-full py-2 bg-blue-500 hover:bg-blue-600 rounded"
+          >
+            Add Text
+          </Button>
+          {activeTextId && (
+            <div className="space-y-4 flex flex-col items-center">
+              {/* Font Size Controls */}
+              <div>
+                <label className="block text-sm mb-2">Font Size:</label>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() =>
+                      activeTextId &&
+                      updateText(activeTextId, {
+                        size: Math.max(
+                          1,
+                          (texts.find((t) => t.id === activeTextId)?.size ||
+                            0) - 1
+                        ),
+                      })
+                    }
+                    className="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600"
+                  >
+                    -
+                  </button>
+                  <select
+                    value={texts.find((t) => t.id === activeTextId)?.size}
+                    onChange={(e) =>
+                      updateText(activeTextId, { size: Number(e.target.value) })
+                    }
+                    className="px-3 py-1 bg-gray-700 text-white rounded"
+                  >
+                    {[
+                      12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 56, 64, 72, 80,
+                      96, 128, 200,
+                    ].map((size) => (
+                      <option key={size} value={size}>
+                        {size}px
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() =>
+                      activeTextId &&
+                      updateText(activeTextId, {
+                        size: Math.min(
+                          200,
+                          (texts.find((t) => t.id === activeTextId)?.size ||
+                            0) + 1
+                        ),
+                      })
+                    }
+                    className="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Text Color Picker */}
+              <div>
+                <label className="block text-sm mb-2">Text Color:</label>
+                <input
+                  type="color"
+                  value={texts.find((t) => t.id === activeTextId)?.color}
+                  onChange={(e) =>
+                    updateText(activeTextId, { color: e.target.value })
+                  }
+                  className="w-12 h-12 p-0 border-0 rounded"
+                />
+              </div>
+            </div>
+          )}
+          <input
+            type="text"
+            value={texts.find((t) => t.id === activeTextId)?.content || ""}
+            onChange={(e) =>
+              activeTextId &&
+              updateText(activeTextId, { content: e.target.value })
+            }
+            className="mt-2 p-2 border rounded w-full"
+            placeholder="Enter a text"
+          />
+          <div className="mt-2 flex space-x-4">
+            <div>
+              <label className="block text-sm">Position X:</label>
+              <input
+                type="number"
+                value={texts.find((t) => t.id === activeTextId)?.x || 0}
+                onChange={(e) =>
+                  activeTextId &&
+                  updateText(activeTextId, { x: Number(e.target.value) })
+                }
+                className="p-2 border rounded w-24"
+              />
+            </div>
+            <div>
+              <label className="block text-sm">Position Y:</label>
+              <input
+                type="number"
+                value={texts.find((t) => t.id === activeTextId)?.y || 0}
+                onChange={(e) =>
+                  activeTextId &&
+                  updateText(activeTextId, { y: Number(e.target.value) })
+                }
+                className="p-2 border rounded w-24"
+              />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p className="text-white mt-10">Upload media</p>
+      )}
     </div>
   );
 };

@@ -6,6 +6,10 @@ import VideoEditor from "./components/VideoUploader";
 import { Drawer } from "./components/SideBar/Drawer";
 import { Media } from "./components/SideBar/Media";
 import TextDrawer from "./components/SideBar/Text";
+import { TextOverlayProvider } from "./components/context/TextOverlayContext";
+import { MediaProvider } from "./components/context/MediaContextType";
+import { ImageOverlayProvider } from "./components/context/ImageContext";
+import ImageDrawer from "./components/SideBar/ImageDrawer";
 
 function App() {
   const [selectedItem, setSelectedItem] = useState<string>("Media");
@@ -25,30 +29,40 @@ function App() {
       case "Videos":
         return <Media />;
       case "Images":
-        return <Media />;
+        return <ImageDrawer />;
       default:
         return <Media />;
     }
   };
 
   return (
-    <SidebarLayout
-      slots={{
-        navigation: (
-          <div className="bg-gray-100 text-center h-full">
-            <Navigation onSelect={setSelectedItem} />
-          </div>
-        ),
-        assetsDrawer: <Drawer>{renderDrawerContent()}</Drawer>,
-        rightSidebar: (
-          <div className="bg-gray-200 text-center h-full">Right Sidebar</div>
-        ),
-        topBar: <div className="bg-gray-100 text-center">Top Bar</div>,
-        bottomBar: <div className="bg-gray-100 text-center">Bottom Bar</div>,
-      }}
-    >
-      <VideoEditor />
-    </SidebarLayout>
+    <TextOverlayProvider>
+      <MediaProvider>
+        <ImageOverlayProvider>
+          <SidebarLayout
+            slots={{
+              navigation: (
+                <div className="bg-gray-100 text-center h-full">
+                  <Navigation onSelect={setSelectedItem} />
+                </div>
+              ),
+              assetsDrawer: <Drawer>{renderDrawerContent()}</Drawer>,
+              rightSidebar: (
+                <div className="bg-gray-200 text-center h-full">
+                  Right Sidebar
+                </div>
+              ),
+              topBar: <div className="bg-gray-100 text-center">Top Bar</div>,
+              bottomBar: (
+                <div className="bg-gray-100 text-center">Bottom Bar</div>
+              ),
+            }}
+          >
+            <VideoEditor />
+          </SidebarLayout>
+        </ImageOverlayProvider>
+      </MediaProvider>
+    </TextOverlayProvider>
   );
 }
 

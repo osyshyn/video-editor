@@ -6,6 +6,9 @@ import VideoTimeLine from "./VideoTimeLine/VideoTimeLine";
 import VideoTrimer from "./VideoTimeLine/VideoTrimer";
 import ImageOverlayControls from "./ImageOverlayControls";
 import { Select } from "./ui/select";
+import { useTextOverlay } from "./context/TextOverlayContext";
+import { useMedia } from "./context/MediaContextType";
+import { useImageOverlay } from "./context/ImageContext";
 
 interface TextOverlay {
   id: string;
@@ -19,13 +22,21 @@ interface TextOverlay {
 export default function VideoEditor() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imageURL, setImageURL] = useState<string>("");
-  const [imageX, setImageX] = useState(10);
-  const [imageY, setImageY] = useState(10);
-  const [imageWidth, setImageWidth] = useState(100);
-  const [imageHeight, setImageHeight] = useState(100);
-  const [imageOverlayActive, setImageOverlayActive] = useState(false);
+  // const [imageFile, setImageFile] = useState<File | null>(null);
+  // const [imageURL, setImageURL] = useState<string>("");
+  // const [imageX, setImageX] = useState(10);
+  // const [imageY, setImageY] = useState(10);
+  // const [imageWidth, setImageWidth] = useState(100);
+  // const [imageHeight, setImageHeight] = useState(100);
+  // const [imageOverlayActive, setImageOverlayActive] = useState(false);
+
+  const { selectedMedia } = useMedia();
+
+  useEffect(() => {
+    const handleMouseUp = () => setDragging(false);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => window.removeEventListener("mouseup", handleMouseUp);
+  }, []);
 
   const ffmpegRef = useRef(new FFmpeg());
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -33,13 +44,36 @@ export default function VideoEditor() {
 
   const [startTime, setStartTime] = useState(0);
   const [endTime, setEndTime] = useState(30);
-  const [texts, setTexts] = useState<TextOverlay[]>([]);
-  const [activeTextId, setActiveTextId] = useState<string | null>(null);
 
   const [processing, setProcessing] = useState(false);
   const [fontLoaded, setFontLoaded] = useState(false);
 
+  const [dragging, setDragging] = useState(false);
+
   const videoContainerRef = useRef<HTMLDivElement | null>(null);
+  const imageRef = useRef<HTMLDivElement | null>(null);
+
+  const { texts, activeTextId, setActiveTextId, updateText, setIsVideoFile } =
+    useTextOverlay();
+
+  const {
+    imageFile,
+    setImageFile,
+    imageURL,
+    setImageURL,
+    imageX,
+    setImageX,
+    imageY,
+    setImageY,
+    imageWidth,
+    setImageWidth,
+    imageHeight,
+    setImageHeight,
+    imageOverlayActive,
+    setImageOverlayActive,
+  } = useImageOverlay();
+  const [offsetX, setOffsetX] = useState(0);
+  const [offsetY, setOffsetY] = useState(0);
 
   useEffect(() => {
     const load = async () => {
@@ -85,31 +119,15 @@ export default function VideoEditor() {
     console.log("Selected file:", file);
     if (file) {
       setVideoFile(file);
+      setIsVideoFile(true);
+
       if (videoRef.current) {
         videoRef.current.src = URL.createObjectURL(file);
         console.log("Video source set:", videoRef.current.src);
         setEndTime(Number(videoRef.current.duration));
+        setIsVideoFile(true);
       }
     }
-  };
-
-  const handleClickAddText = () => {
-    const newText: TextOverlay = {
-      id: Date.now().toString(),
-      content: "",
-      x: 50,
-      y: 50,
-      size: 24,
-      color: "#ffffff",
-    };
-    setTexts((prev) => [...prev, newText]);
-    setActiveTextId(newText.id);
-  };
-
-  const updateText = (id: string, newData: Partial<TextOverlay>) => {
-    setTexts((prev) =>
-      prev.map((text) => (text.id === id ? { ...text, ...newData } : text))
-    );
   };
 
   const handleTextDragEnd = (
@@ -124,13 +142,63 @@ export default function VideoEditor() {
     }
   };
 
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!imageRef.current) return;
+
+    setDragging(true);
+
+    const rect = imageRef.current.getBoundingClientRect();
+    setOffsetX(e.clientX - rect.left);
+    setOffsetY(e.clientY - rect.top);
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!dragging || !videoContainerRef.current) return;
+
+    const rect = videoContainerRef.current.getBoundingClientRect();
+
+    let newX = e.clientX - rect.left - offsetX;
+    let newY = e.clientY - rect.top - offsetY;
+
+    newX = Math.max(
+      0,
+      Math.min(newX, rect.width - imageRef.current!.offsetWidth)
+    );
+    newY = Math.max(
+      0,
+      Math.min(newY, rect.height - imageRef.current!.offsetHeight)
+    );
+
+    setImageX(newX);
+    setImageY(newY);
+  };
+
+  const handleMouseUp = () => {
+    setDragging(false);
+  };
+
+  useEffect(() => {
+    if (dragging) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [dragging]);
+
   const handleImageDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
     if (videoContainerRef.current) {
       const rect = videoContainerRef.current.getBoundingClientRect();
       const newX = e.clientX - rect.left;
       const newY = e.clientY - rect.top;
-      setImageX(newX);
-      setImageY(newY);
+
+      // Optional: constrain the image within the bounds of the video container
+      const maxX = rect.width - imageWidth;
+      const maxY = rect.height - imageHeight;
+      setImageX(Math.min(Math.max(newX, 0), maxX));
+      setImageY(Math.min(Math.max(newY, 0), maxY));
     }
   };
 
@@ -230,9 +298,9 @@ export default function VideoEditor() {
   };
 
   return (
-    <div className="flex ml-[400px] flex-col items-center justify-center h-full w-full">
+    <div className="flex flex-col ml-[400px] items-center justify-center h-full w-full">
       {!videoFile && (
-        <div className="absolute flex items-center justify-center w-[300px] transform translate-x-1/2 translate-y-[-50%] right-[50%] top-[50%]">
+        <div className="absolute right-[50%] top-[50%] flex items-center justify-center w-[300px] transform translate-x-1/2 translate-y-[-50%]">
           <label
             htmlFor="dropzone-file"
             className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600"
@@ -272,25 +340,23 @@ export default function VideoEditor() {
       {videoFile && (
         <div
           ref={videoContainerRef}
-          className="relative p-5 rounded-2xl overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700 flex flex-col items-center"
+          className="relative p-5 rounded-2xl overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700"
         >
           <video
             ref={videoRef}
             controls
-            className="rounded-xl w-[640px] h-[360px]"
+            className="mt-4 w-full max-w-md"
           ></video>
           {texts.map((text) => (
             <div
               key={text.id}
               draggable
-              onDragEnd={(e) => handleTextDragEnd(e, text.id)}
               onClick={() => setActiveTextId(text.id)}
               style={{
                 position: "absolute",
                 left: text.x,
                 top: text.y,
                 padding: "4px",
-                borderRadius: "4px",
                 cursor: "move",
                 outline: activeTextId === text.id ? "1px solid blue" : "none",
               }}
@@ -301,7 +367,6 @@ export default function VideoEditor() {
                 onChange={(e) =>
                   updateText(text.id, { content: e.target.value })
                 }
-                onClick={(e) => e.stopPropagation()}
                 className="p-1 border-0 bg-transparent"
                 style={{ color: text.color, fontSize: text.size }}
                 placeholder="Enter text"
@@ -310,21 +375,23 @@ export default function VideoEditor() {
           ))}
           {imageOverlayActive && imageFile && (
             <div
-              draggable
-              onDragEnd={handleImageDragEnd}
+              ref={imageRef}
+              onMouseDown={handleMouseDown}
               style={{
                 position: "absolute",
                 left: imageX,
                 top: imageY,
-                width: imageWidth,
-                height: imageHeight,
-                cursor: "move",
+                cursor: "grab",
+                width: "200px",
+                height: "200px",
+                userSelect: "none",
               }}
             >
               <img
                 src={URL.createObjectURL(imageFile)}
                 alt="overlay"
                 className="w-full h-full object-contain"
+                draggable={false} // Отключаем стандартный drag
               />
             </div>
           )}
@@ -333,7 +400,7 @@ export default function VideoEditor() {
 
       <Select></Select>
 
-      {videoFile && <Button onClick={handleClickAddText}>Add Text</Button>}
+      {/* {videoFile && <Button onClick={handleClickAddText}>Add Text</Button>} */}
 
       {videoFile && (
         <Button onClick={processVideo} disabled={loading}>
@@ -342,7 +409,7 @@ export default function VideoEditor() {
       )}
 
       {videoFile && (
-        <div className="flex flex-col w-[60%]">
+        <div className="w-full p-4">
           <VideoTimeLine
             handleRangeChange={handleRangeChange}
             videoRef={videoRef}
@@ -358,7 +425,7 @@ export default function VideoEditor() {
         </div>
       )}
 
-      {videoFile && activeTextId && (
+      {/* {videoFile && activeTextId && (
         <div className="mt-2 flex items-center space-x-4">
           <div>
             <label className="block text-sm">Font Size:</label>
@@ -421,25 +488,47 @@ export default function VideoEditor() {
             />
           </div>
         </div>
-      )}
+      )} */}
 
       {videoFile && (
         <>
-          {/* <ImageOverlayControls
-            imageFile={imageFile}
-            handleImageChange={handleImageChange}
-            imageX={imageX}
-            imageY={imageY}
-            setImageX={setImageX}
-            setImageY={setImageY}
+          <input
+            type="text"
+            value={texts.find((t) => t.id === activeTextId)?.content || ""}
+            onChange={(e) =>
+              activeTextId &&
+              updateText(activeTextId, { content: e.target.value })
+            }
+            className="mt-2 p-2 border rounded w-full"
+            placeholder="Enter a text"
           />
-          <button
-            onClick={addImageToVideo}
-            disabled={!videoFile || !imageFile || processing}
-            className="mt-4 bg-green-500 text-white px-4 py-2 rounded"
-          >
-            Add Image to Video
-          </button> */}
+          <div className="mt-2 flex space-x-4">
+            <div>
+              <label className="block text-sm">Position X:</label>
+              <input
+                type="number"
+                value={texts.find((t) => t.id === activeTextId)?.x || 0}
+                onChange={(e) =>
+                  activeTextId &&
+                  updateText(activeTextId, { x: Number(e.target.value) })
+                }
+                className="p-2 border rounded w-24"
+              />
+            </div>
+            <div>
+              <label className="block text-sm">Position Y:</label>
+              <input
+                type="number"
+                value={texts.find((t) => t.id === activeTextId)?.y || 0}
+                onChange={(e) =>
+                  activeTextId &&
+                  updateText(activeTextId, { y: Number(e.target.value) })
+                }
+                className="p-2 border rounded w-24"
+              />
+            </div>
+          </div>
+
           <button
             onClick={transcode}
             disabled={!videoFile || processing}

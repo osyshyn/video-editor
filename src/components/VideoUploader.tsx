@@ -90,9 +90,9 @@ export default function VideoEditor() {
   }, []);
 
   return (
-    <div className="m-5">
+    <div className="flex items-center justify-center h-full w-full">
       {!videoFile && (
-        <div className="absolute right-[50%] top-[50%] flex items-center justify-center w-[300px] transform translate-x-1/2 translate-y-[-50%]">
+        <div className="absolute flex items-center justify-center w-[300px] transform translate-x-1/2 translate-y-[-50%] right-[50%] top-[50%]">
           <label
             htmlFor="dropzone-file"
             className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600"
@@ -130,25 +130,16 @@ export default function VideoEditor() {
       )}
 
       {videoFile && (
-        <div className="relative p-5 rounded-2xl overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700 ">
+        <div className="relative p-5 rounded-2xl overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700 flex flex-col items-center">
           <video
             ref={videoRef}
             src={URL.createObjectURL(videoFile)}
-            // src="http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
             controls
-            className="rounded-xl w-[640px] h-[360x]"
+            className="rounded-xl w-[640px] h-[360px]"
           ></video>
-        </div>
-      )}
-
-      {videoFile && (
-        <Button onClick={processVideo} disabled={loading}>
-          {loading ? "Processing..." : "Trim Video"}
-        </Button>
-      )}
-
-      {videoFile && (
-        <div>
+          <Button onClick={processVideo} disabled={loading} className="mt-4">
+            {loading ? "Processing..." : "Trim Video"}
+          </Button>
           <VideoTimeLine
             handleRangeChange={handleRangeChange}
             videoTime={videoTime}

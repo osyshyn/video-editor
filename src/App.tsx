@@ -5,7 +5,7 @@ import { Navigation } from "./components/SideBar/Navigation";
 import VideoEditor from "./components/VideoUploader";
 import { Drawer } from "./components/SideBar/Drawer";
 import { Media } from "./components/SideBar/Media";
-import { TextDrawer } from "./components/SideBar/Text";
+import TextDrawer from "./components/SideBar/Text";
 
 function App() {
   const [selectedItem, setSelectedItem] = useState<string>("Media");
@@ -19,7 +19,9 @@ function App() {
       case "Layers":
         return <Media />;
       case "Text":
-        return <TextDrawer />;
+        return (
+          <TextDrawer onTextChange={() => {}} onPositionChange={() => {}} />
+        );
       case "Videos":
         return <Media />;
       case "Images":

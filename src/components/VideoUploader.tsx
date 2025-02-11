@@ -147,7 +147,6 @@ export default function VideoEditor() {
 
     setDragging(true);
 
-    // Вычисляем смещение клика относительно изображения
     const rect = imageRef.current.getBoundingClientRect();
     setOffsetX(e.clientX - rect.left);
     setOffsetY(e.clientY - rect.top);
@@ -158,11 +157,9 @@ export default function VideoEditor() {
 
     const rect = videoContainerRef.current.getBoundingClientRect();
 
-    // Вычисляем новые координаты с учетом смещения
     let newX = e.clientX - rect.left - offsetX;
     let newY = e.clientY - rect.top - offsetY;
 
-    // Ограничение внутри контейнера
     newX = Math.max(
       0,
       Math.min(newX, rect.width - imageRef.current!.offsetWidth)
@@ -301,7 +298,7 @@ export default function VideoEditor() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-full w-full">
+    <div className="flex flex-col ml-[400px] items-center justify-center h-full w-full">
       {!videoFile && (
         <div className="absolute right-[50%] top-[50%] flex items-center justify-center w-[300px] transform translate-x-1/2 translate-y-[-50%]">
           <label
@@ -412,7 +409,7 @@ export default function VideoEditor() {
       )}
 
       {videoFile && (
-        <div>
+        <div className="w-full p-4">
           <VideoTimeLine
             handleRangeChange={handleRangeChange}
             videoRef={videoRef}

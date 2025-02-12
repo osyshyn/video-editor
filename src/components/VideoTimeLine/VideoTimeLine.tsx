@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useOverlay } from "../context/OverlayContext";
 
 interface IVideoTimelineProps {
   handleRangeChange: (time: number) => void;
@@ -12,6 +13,7 @@ export default function VideoTimeLine({
   const [duration, setDuration] = useState(30);
   const [currentTime, setCurrentTime] = useState(0);
   const timelineRef = useRef<HTMLDivElement | null>(null);
+  const { overlays, updateOverlay } = useOverlay();
 
   useEffect(() => {
     const video = videoRef.current;
@@ -112,10 +114,44 @@ export default function VideoTimeLine({
         />
 
         <div className="relative w-full flex flex-col gap-1 py-4">
-          {/* {timelines.map((timeline, index) => (
-            <div key={index} className="w-full h-3 bg-blue-300 rounded"></div>
-          ))} */}
-          <span className="text-gray-500 text-sm px-2">map</span>
+          {overlays.map((item) => {
+            let imageCount = 1;
+
+            if (item.type === "text") {
+              return (
+                <div
+                  key={item.id}
+                  className="w-full p-4 opacity-80 text-2xl bg-red-300 rounded"
+                  style={
+                    {
+                      // left: `${(item.startTime / duration) * 100}%`,
+                      // width: `${((item.endTime - item.startTime) / duration) * 100}%`,
+                    }
+                  }
+                >
+                  {item.content}
+                </div>
+              );
+            }
+            if (item.type === "image") {
+              imageCount++;
+
+              return (
+                <div
+                  key={item.id}
+                  className={`w-full h-3 bg-blue-300 rounded`}
+                  style={
+                    {
+                      // left: `${(item.startTime / duration) * 100}%`,
+                      // width: `${((item.endTime - item.startTime) / duration) * 100}%`,
+                    }
+                  }
+                >
+                  Image {imageCount}
+                </div>
+              );
+            }
+          })}
         </div>
       </div>
     </div>

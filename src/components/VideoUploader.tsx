@@ -4,20 +4,9 @@ import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { Button } from "@/components/ui/button";
 import VideoTimeLine from "./VideoTimeLine/VideoTimeLine";
 import VideoTrimer from "./VideoTimeLine/VideoTrimer";
-import ImageOverlayControls from "./ImageOverlayControls";
 import { Select } from "./ui/select";
-import { useTextOverlay } from "./context/TextOverlayContext";
-import { useMedia } from "./context/MediaContextType";
 import { useImageOverlay } from "./context/ImageContext";
-
-interface TextOverlay {
-  id: string;
-  content: string;
-  x: number;
-  y: number;
-  size: number;
-  color: string;
-}
+import { useOverlay } from "./context/OverlayContext";
 
 export default function VideoEditor() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -29,8 +18,6 @@ export default function VideoEditor() {
   // const [imageWidth, setImageWidth] = useState(100);
   // const [imageHeight, setImageHeight] = useState(100);
   // const [imageOverlayActive, setImageOverlayActive] = useState(false);
-
-  const { selectedMedia } = useMedia();
 
   useEffect(() => {
     const handleMouseUp = () => setDragging(false);
@@ -53,8 +40,13 @@ export default function VideoEditor() {
   const videoContainerRef = useRef<HTMLDivElement | null>(null);
   const imageRef = useRef<HTMLDivElement | null>(null);
 
-  const { texts, activeTextId, setActiveTextId, updateText, setIsVideoFile } =
-    useTextOverlay();
+  const {
+    overlays,
+    activeTextId,
+    setActiveTextId,
+    updateOverlay,
+    setIsVideoFile,
+  } = useOverlay();
 
   const {
     imageFile,
@@ -138,7 +130,7 @@ export default function VideoEditor() {
       const containerRect = videoContainerRef.current.getBoundingClientRect();
       const newX = e.clientX - containerRect.left;
       const newY = e.clientY - containerRect.top;
-      updateText(id, { x: newX, y: newY });
+      updateOverlay(id, { x: newX, y: newY });
     }
   };
 
@@ -221,8 +213,8 @@ export default function VideoEditor() {
     const videoData = await fetchFile(videoFile);
     await ffmpeg.writeFile("input.mp4", videoData);
 
-    const drawTextFilters = texts.map((item) => {
-      const ffmpegColor = item.color.startsWith("#")
+    const drawTextFilters = overlays.map((item) => {
+      const ffmpegColor = item.color?.startsWith("#")
         ? item.color.replace("#", "0x")
         : item.color;
       return `drawtext=fontfile=/arial.ttf:text='${item.content}':x=${item.x}:y=${item.y}:fontsize=${item.size}:fontcolor=${ffmpegColor}`;
@@ -347,32 +339,38 @@ export default function VideoEditor() {
             controls
             className="mt-4 w-full max-w-md"
           ></video>
-          {texts.map((text) => (
-            <div
-              key={text.id}
-              draggable
-              onClick={() => setActiveTextId(text.id)}
-              style={{
-                position: "absolute",
-                left: text.x,
-                top: text.y,
-                padding: "4px",
-                cursor: "move",
-                outline: activeTextId === text.id ? "1px solid blue" : "none",
-              }}
-            >
-              <input
-                type="text"
-                value={text.content}
-                onChange={(e) =>
-                  updateText(text.id, { content: e.target.value })
-                }
-                className="p-1 border-0 bg-transparent"
-                style={{ color: text.color, fontSize: text.size }}
-                placeholder="Enter text"
-              />
-            </div>
-          ))}
+          {overlays.map((text) => {
+            if (text.type === "text") {
+              return (
+                <div
+                  key={text.id}
+                  draggable
+                  onDragEnd={(e) => handleTextDragEnd(e, text.id)}
+                  onClick={() => setActiveTextId(text.id)}
+                  style={{
+                    position: "absolute",
+                    left: text.x,
+                    top: text.y,
+                    padding: "4px",
+                    cursor: "move",
+                    outline:
+                      activeTextId === text.id ? "1px solid blue" : "none",
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={text.content}
+                    onChange={(e) =>
+                      updateOverlay(text.id, { content: e.target.value })
+                    }
+                    className="p-1 border-0 bg-transparent"
+                    style={{ color: text.color, fontSize: text.size }}
+                    placeholder="Enter text"
+                  />
+                </div>
+              );
+            }
+          })}
           {imageOverlayActive && imageFile && (
             <div
               ref={imageRef}
@@ -492,43 +490,6 @@ export default function VideoEditor() {
 
       {videoFile && (
         <>
-          <input
-            type="text"
-            value={texts.find((t) => t.id === activeTextId)?.content || ""}
-            onChange={(e) =>
-              activeTextId &&
-              updateText(activeTextId, { content: e.target.value })
-            }
-            className="mt-2 p-2 border rounded w-full"
-            placeholder="Enter a text"
-          />
-          <div className="mt-2 flex space-x-4">
-            <div>
-              <label className="block text-sm">Position X:</label>
-              <input
-                type="number"
-                value={texts.find((t) => t.id === activeTextId)?.x || 0}
-                onChange={(e) =>
-                  activeTextId &&
-                  updateText(activeTextId, { x: Number(e.target.value) })
-                }
-                className="p-2 border rounded w-24"
-              />
-            </div>
-            <div>
-              <label className="block text-sm">Position Y:</label>
-              <input
-                type="number"
-                value={texts.find((t) => t.id === activeTextId)?.y || 0}
-                onChange={(e) =>
-                  activeTextId &&
-                  updateText(activeTextId, { y: Number(e.target.value) })
-                }
-                className="p-2 border rounded w-24"
-              />
-            </div>
-          </div>
-
           <button
             onClick={transcode}
             disabled={!videoFile || processing}

@@ -1,6 +1,6 @@
 import React, { FC, useState } from "react";
-import { useTextOverlay } from "../context/TextOverlayContext";
 import { Button } from "../ui/button";
+import { useOverlay } from "../context/OverlayContext";
 
 interface TextDrawerProps {
   onTextChange: (text: string) => void;
@@ -12,13 +12,13 @@ const TextDrawer: FC<TextDrawerProps> = ({
   onPositionChange,
 }) => {
   const {
+    updateOverlay,
     addText,
-    texts,
     activeTextId,
     setActiveTextId,
-    updateText,
+    overlays,
     isVideoFile,
-  } = useTextOverlay();
+  } = useOverlay();
 
   const [text, setText] = useState<string>("");
   const [positionX, setPositionX] = useState<number>(0);
@@ -65,10 +65,10 @@ const TextDrawer: FC<TextDrawerProps> = ({
                   <button
                     onClick={() =>
                       activeTextId &&
-                      updateText(activeTextId, {
+                      updateOverlay(activeTextId, {
                         size: Math.max(
                           1,
-                          (texts.find((t) => t.id === activeTextId)?.size ||
+                          (overlays.find((t) => t.id === activeTextId)?.size ||
                             0) - 1
                         ),
                       })
@@ -78,9 +78,11 @@ const TextDrawer: FC<TextDrawerProps> = ({
                     -
                   </button>
                   <select
-                    value={texts.find((t) => t.id === activeTextId)?.size}
+                    value={overlays.find((t) => t.id === activeTextId)?.size}
                     onChange={(e) =>
-                      updateText(activeTextId, { size: Number(e.target.value) })
+                      updateOverlay(activeTextId, {
+                        size: Number(e.target.value),
+                      })
                     }
                     className="px-3 py-1 bg-gray-700 text-white rounded"
                   >
@@ -96,10 +98,10 @@ const TextDrawer: FC<TextDrawerProps> = ({
                   <button
                     onClick={() =>
                       activeTextId &&
-                      updateText(activeTextId, {
+                      updateOverlay(activeTextId, {
                         size: Math.min(
                           200,
-                          (texts.find((t) => t.id === activeTextId)?.size ||
+                          (overlays.find((t) => t.id === activeTextId)?.size ||
                             0) + 1
                         ),
                       })
@@ -116,9 +118,9 @@ const TextDrawer: FC<TextDrawerProps> = ({
                 <label className="block text-sm mb-2">Text Color:</label>
                 <input
                   type="color"
-                  value={texts.find((t) => t.id === activeTextId)?.color}
+                  value={overlays.find((t) => t.id === activeTextId)?.color}
                   onChange={(e) =>
-                    updateText(activeTextId, { color: e.target.value })
+                    updateOverlay(activeTextId, { color: e.target.value })
                   }
                   className="w-12 h-12 p-0 border-0 rounded"
                 />
@@ -127,10 +129,10 @@ const TextDrawer: FC<TextDrawerProps> = ({
           )}
           <input
             type="text"
-            value={texts.find((t) => t.id === activeTextId)?.content || ""}
+            value={overlays.find((t) => t.id === activeTextId)?.content || ""}
             onChange={(e) =>
               activeTextId &&
-              updateText(activeTextId, { content: e.target.value })
+              updateOverlay(activeTextId, { content: e.target.value })
             }
             className="mt-2 p-2 border rounded w-full"
             placeholder="Enter a text"
@@ -140,10 +142,10 @@ const TextDrawer: FC<TextDrawerProps> = ({
               <label className="block text-sm">Position X:</label>
               <input
                 type="number"
-                value={texts.find((t) => t.id === activeTextId)?.x || 0}
+                value={overlays.find((t) => t.id === activeTextId)?.x || 0}
                 onChange={(e) =>
                   activeTextId &&
-                  updateText(activeTextId, { x: Number(e.target.value) })
+                  updateOverlay(activeTextId, { x: Number(e.target.value) })
                 }
                 className="p-2 border rounded w-24"
               />
@@ -152,10 +154,10 @@ const TextDrawer: FC<TextDrawerProps> = ({
               <label className="block text-sm">Position Y:</label>
               <input
                 type="number"
-                value={texts.find((t) => t.id === activeTextId)?.y || 0}
+                value={overlays.find((t) => t.id === activeTextId)?.y || 0}
                 onChange={(e) =>
                   activeTextId &&
-                  updateText(activeTextId, { y: Number(e.target.value) })
+                  updateOverlay(activeTextId, { y: Number(e.target.value) })
                 }
                 className="p-2 border rounded w-24"
               />

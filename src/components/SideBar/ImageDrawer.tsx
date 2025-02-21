@@ -1,23 +1,14 @@
-// adjust the path
-import { useImageOverlay } from "../context/ImageContext";
+import { useOverlay } from "../context/OverlayContext";
 
 export default function ImageDrawer() {
   const {
-    imageFile,
-    setImageFile,
-    imageURL,
-    setImageURL,
-    imageX,
-    setImageX,
-    imageY,
-    setImageY,
-    imageWidth,
-    setImageWidth,
-    imageHeight,
-    setImageHeight,
+    overlays,
+    addImage,
     imageOverlayActive,
     setImageOverlayActive,
-  } = useImageOverlay();
+    activeImageId,
+    updateOverlay,
+  } = useOverlay();
 
   return (
     <div className="w-full max-w-lg mx-auto p-6 bg-gray-800 rounded-xl shadow-lg text-white">
@@ -39,8 +30,7 @@ export default function ImageDrawer() {
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) {
-              setImageFile(file);
-              setImageURL(URL.createObjectURL(file));
+              addImage(file, URL.createObjectURL(file));
               setImageOverlayActive(true);
             }
           }}
@@ -54,8 +44,12 @@ export default function ImageDrawer() {
             <label className="text-sm">X Position:</label>
             <input
               type="number"
-              value={imageX}
-              onChange={(e) => setImageX(Number(e.target.value))}
+              value={overlays.find((t) => t.id === activeImageId)?.x || 0}
+              onChange={(e) =>
+                updateOverlay(activeImageId, {
+                  x: Number(e.target.value),
+                })
+              }
               className="w-24 p-2 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -64,8 +58,10 @@ export default function ImageDrawer() {
             <label className="text-sm">Y Position:</label>
             <input
               type="number"
-              value={imageY}
-              onChange={(e) => setImageY(Number(e.target.value))}
+              value={overlays.find((t) => t.id === activeImageId)?.y || 0}
+              onChange={(e) =>
+                updateOverlay(activeImageId, { y: Number(e.target.value) })
+              }
               className="w-24 p-2 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -74,8 +70,10 @@ export default function ImageDrawer() {
             <label className="text-sm">Width:</label>
             <input
               type="number"
-              value={imageWidth}
-              onChange={(e) => setImageWidth(Number(e.target.value))}
+              value={overlays.find((t) => t.id === activeImageId)?.width || 100}
+              onChange={(e) =>
+                updateOverlay(activeImageId, { width: Number(e.target.value) })
+              }
               className="w-24 p-2 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -84,8 +82,12 @@ export default function ImageDrawer() {
             <label className="text-sm">Height:</label>
             <input
               type="number"
-              value={imageHeight}
-              onChange={(e) => setImageHeight(Number(e.target.value))}
+              value={
+                overlays.find((t) => t.id === activeImageId)?.height || 100
+              }
+              onChange={(e) =>
+                updateOverlay(activeImageId, { height: Number(e.target.value) })
+              }
               className="w-24 p-2 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

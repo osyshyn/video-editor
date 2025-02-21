@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import VideoTimeLine from "./VideoTimeLine/VideoTimeLine";
 import VideoTrimer from "./VideoTimeLine/VideoTrimer";
 import { Select } from "./ui/select";
-import { useImageOverlay } from "./context/ImageContext";
 import { useOverlay } from "./context/OverlayContext";
 
 export default function VideoEditor() {
@@ -46,24 +45,10 @@ export default function VideoEditor() {
     setActiveTextId,
     updateOverlay,
     setIsVideoFile,
+    setImageOverlayActive,
+    activeImageId,
   } = useOverlay();
 
-  const {
-    imageFile,
-    setImageFile,
-    imageURL,
-    setImageURL,
-    imageX,
-    setImageX,
-    imageY,
-    setImageY,
-    imageWidth,
-    setImageWidth,
-    imageHeight,
-    setImageHeight,
-    imageOverlayActive,
-    setImageOverlayActive,
-  } = useImageOverlay();
   const [offsetX, setOffsetX] = useState(0);
   const [offsetY, setOffsetY] = useState(0);
 
@@ -106,6 +91,16 @@ export default function VideoEditor() {
     setFontLoaded(true);
   };
 
+  const togglePlay = () => {
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play();
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     console.log("Selected file:", file);
@@ -144,32 +139,31 @@ export default function VideoEditor() {
     setOffsetY(e.clientY - rect.top);
   };
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!dragging || !videoContainerRef.current) return;
-
-    const rect = videoContainerRef.current.getBoundingClientRect();
-
-    let newX = e.clientX - rect.left - offsetX;
-    let newY = e.clientY - rect.top - offsetY;
-
-    newX = Math.max(
-      0,
-      Math.min(newX, rect.width - imageRef.current!.offsetWidth)
-    );
-    newY = Math.max(
-      0,
-      Math.min(newY, rect.height - imageRef.current!.offsetHeight)
-    );
-
-    setImageX(newX);
-    setImageY(newY);
-  };
-
   const handleMouseUp = () => {
     setDragging(false);
   };
 
   useEffect(() => {
+    const handleMouseMove = (e: MouseEvent, id: string) => {
+      if (!dragging || !videoContainerRef.current) return;
+
+      const rect = videoContainerRef.current.getBoundingClientRect();
+
+      let newX = e.clientX - rect.left - offsetX;
+      let newY = e.clientY - rect.top - offsetY;
+
+      newX = Math.max(
+        0,
+        Math.min(newX, rect.width - imageRef.current!.offsetWidth)
+      );
+      newY = Math.max(
+        0,
+        Math.min(newY, rect.height - imageRef.current!.offsetHeight)
+      );
+
+      updateOverlay(id, { x: newX, y: newY });
+    };
+
     if (dragging) {
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
@@ -178,19 +172,28 @@ export default function VideoEditor() {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [dragging]);
+  }, [dragging, offsetX, offsetY, updateOverlay]);
 
-  const handleImageDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleImageDragEnd = (
+    e: React.DragEvent<HTMLDivElement>,
+    id: string
+  ) => {
     if (videoContainerRef.current) {
       const rect = videoContainerRef.current.getBoundingClientRect();
       const newX = e.clientX - rect.left;
       const newY = e.clientY - rect.top;
+      const imageWidth =
+        overlays.find((t) => t.id === activeImageId)?.width || 100;
+      const imageHeight =
+        overlays.find((t) => t.id === activeImageId)?.width || 100;
 
       // Optional: constrain the image within the bounds of the video container
       const maxX = rect.width - imageWidth;
       const maxY = rect.height - imageHeight;
-      setImageX(Math.min(Math.max(newX, 0), maxX));
-      setImageY(Math.min(Math.max(newY, 0), maxY));
+      updateOverlay(id, {
+        x: Math.min(Math.max(newX, 0), maxX),
+        y: Math.min(Math.max(newY, 0), maxY),
+      });
     }
   };
 
@@ -290,7 +293,7 @@ export default function VideoEditor() {
   };
 
   return (
-    <div className="flex flex-col ml-[400px] items-center justify-center h-full w-full">
+    <div className="flex flex-col ml-[400px] items-center h-full w-full">
       {!videoFile && (
         <div className="absolute right-[50%] top-[50%] flex items-center justify-center w-[300px] transform translate-x-1/2 translate-y-[-50%]">
           <label
@@ -332,12 +335,12 @@ export default function VideoEditor() {
       {videoFile && (
         <div
           ref={videoContainerRef}
-          className="relative p-5 rounded-2xl overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700"
+          className="relative p-5 w-full flex h-[60%] flex-col items-center justify-center overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700"
         >
           <video
             ref={videoRef}
-            controls
-            className="mt-4 w-full max-w-md"
+            onClick={togglePlay}
+            className="mt-4 w-full h-full"
           ></video>
           {overlays.map((text) => {
             if (text.type === "text") {
@@ -370,44 +373,38 @@ export default function VideoEditor() {
                 </div>
               );
             }
+            if (text.type === "image") {
+              return (
+                <div
+                  key={text.id}
+                  ref={imageRef}
+                  onMouseDown={handleMouseDown}
+                  style={{
+                    position: "absolute",
+                    left: text.x,
+                    top: text.y,
+                    cursor: "grab",
+                    width: "200px",
+                    height: "200px",
+                    userSelect: "none",
+                  }}
+                >
+                  <img
+                    src={URL.createObjectURL(
+                      (text?.file || text?.url) as Blob | MediaSource
+                    )}
+                    alt="overlay"
+                    className="w-full h-full object-contain"
+                    draggable={false}
+                  />
+                </div>
+              );
+            }
           })}
-          {imageOverlayActive && imageFile && (
-            <div
-              ref={imageRef}
-              onMouseDown={handleMouseDown}
-              style={{
-                position: "absolute",
-                left: imageX,
-                top: imageY,
-                cursor: "grab",
-                width: "200px",
-                height: "200px",
-                userSelect: "none",
-              }}
-            >
-              <img
-                src={URL.createObjectURL(imageFile)}
-                alt="overlay"
-                className="w-full h-full object-contain"
-                draggable={false} // Отключаем стандартный drag
-              />
-            </div>
-          )}
         </div>
       )}
-
-      <Select></Select>
-
-      {/* {videoFile && <Button onClick={handleClickAddText}>Add Text</Button>} */}
-
       {videoFile && (
-        <Button onClick={processVideo} disabled={loading}>
-          {loading ? "Processing..." : "Trim Video"}
-        </Button>
-      )}
-
-      {videoFile && (
-        <div className="w-full p-4">
+        <div className="w-full">
           <VideoTimeLine
             handleRangeChange={handleRangeChange}
             videoRef={videoRef}
@@ -422,72 +419,11 @@ export default function VideoEditor() {
           />
         </div>
       )}
-
-      {/* {videoFile && activeTextId && (
-        <div className="mt-2 flex items-center space-x-4">
-          <div>
-            <label className="block text-sm">Font Size:</label>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() =>
-                  activeTextId &&
-                  updateText(activeTextId, {
-                    size: Math.max(
-                      1,
-                      (texts.find((t) => t.id === activeTextId)?.size || 0) - 1
-                    ),
-                  })
-                }
-                className="px-2 py-1 border rounded"
-              >
-                -
-              </button>
-              <select
-                value={texts.find((t) => t.id === activeTextId)?.size}
-                onChange={(e) =>
-                  updateText(activeTextId, { size: Number(e.target.value) })
-                }
-                className="px-2 py-1 border rounded"
-              >
-                {[
-                  12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 56, 64, 72, 80, 96,
-                  128, 200,
-                ].map((size) => (
-                  <option key={size} value={size}>
-                    {size}px
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() =>
-                  activeTextId &&
-                  updateText(activeTextId, {
-                    size: Math.min(
-                      200,
-                      (texts.find((t) => t.id === activeTextId)?.size || 0) + 1
-                    ),
-                  })
-                }
-                className="px-2 py-1 border rounded"
-              >
-                +
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm">Text Color:</label>
-            <input
-              type="color"
-              value={texts.find((t) => t.id === activeTextId)?.color}
-              onChange={(e) =>
-                updateText(activeTextId, { color: e.target.value })
-              }
-              className="w-10 h-10 p-0 border-0"
-            />
-          </div>
-        </div>
-      )} */}
-
+      {videoFile && (
+        <Button onClick={processVideo} disabled={loading}>
+          {loading ? "Processing..." : "Trim Video"}
+        </Button>
+      )}
       {videoFile && (
         <>
           <button

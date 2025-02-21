@@ -64,10 +64,10 @@ export default function VideoTimeLine({
   };
 
   return (
-    <div className="relative w-full flex flex-col gap-2 py-6 rounded">
+    <div className="relative w-full flex flex-col gap-2">
       <div
         ref={timelineRef}
-        className="relative w-full bg-gray-300 rounded cursor-pointer border border-gray-400 overflow-hidden"
+        className="relative w-full bg-gray-300 p-2 min-h-40 cursor-pointer border border-gray-400 overflow-hidden"
         onClick={handleMouseMove}
       >
         <div
@@ -79,7 +79,7 @@ export default function VideoTimeLine({
         />
         <div className="relative flex items-end w-full h-6">
           {Array.from({ length: duration * 2 + 1 }).map((_, index) => {
-            const timeLabel = (index / 2).toFixed(1);
+            const timeLabel = (index / 2).toFixed(0);
             return (
               <div
                 key={index}
@@ -98,7 +98,7 @@ export default function VideoTimeLine({
                   }}
                 />
                 {index % 2 === 0 && (
-                  <span className="text-xs text-gray-900">{timeLabel}</span>
+                  <span className="text-md text-gray-900">{timeLabel}</span>
                 )}
               </div>
             );

@@ -1,9 +1,16 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  Dispatch,
+  SetStateAction,
+} from "react";
 
 export interface OverlayItem {
   id: string;
   type: "image" | "text";
-  file?: File | null;
+  file?: File;
   url?: string;
   content?: string;
   x: number;
@@ -24,8 +31,12 @@ interface OverlayContextType {
   setOverlays: (newOverlays: OverlayItem[]) => void;
   activeTextId: string | null;
   setActiveTextId: (id: string | null) => void;
+  activeImageId: string;
+  setActiveImageId: (id: string) => void;
   isVideoFile: boolean;
   setIsVideoFile: (isVideoFile: boolean) => void;
+  imageOverlayActive: boolean;
+  setImageOverlayActive: Dispatch<SetStateAction<boolean>>;
 }
 
 const OverlayContext = createContext<OverlayContextType | undefined>(undefined);
@@ -34,6 +45,8 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
   const [overlays, setOverlays] = useState<OverlayItem[]>([]);
   const [activeTextId, setActiveTextId] = useState<string | null>(null);
   const [isVideoFile, setIsVideoFile] = useState<boolean>(false);
+  const [imageOverlayActive, setImageOverlayActive] = useState<boolean>(false);
+  const [activeImageId, setActiveImageId] = useState<string>("");
 
   const addImage = (file: File | null, url: string) => {
     const newImage: OverlayItem = {
@@ -84,7 +97,11 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
         activeTextId,
         setActiveTextId,
         isVideoFile,
+        setActiveImageId,
+        activeImageId,
         setIsVideoFile,
+        imageOverlayActive,
+        setImageOverlayActive,
       }}
     >
       {children}

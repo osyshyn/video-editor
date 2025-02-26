@@ -14,7 +14,6 @@ export default function ImageDrawer() {
     <div className="w-full max-w-lg mx-auto p-6 bg-gray-800 rounded-xl shadow-lg text-white">
       <h2 className="text-2xl font-semibold mb-4">Image Upload & Controls</h2>
 
-      {/* Upload Image Button */}
       <div className="mb-6">
         <label
           htmlFor="media-upload"
@@ -37,7 +36,6 @@ export default function ImageDrawer() {
         />
       </div>
 
-      {/* Image Controls */}
       {imageOverlayActive && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">

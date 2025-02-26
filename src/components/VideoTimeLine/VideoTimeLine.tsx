@@ -1,60 +1,78 @@
 import { useEffect, useState, useRef } from "react";
 import { useOverlay } from "../context/OverlayContext";
+import union from "../../assets/Union.svg";
+import { useDrop } from "react-dnd";
 
 interface IVideoTimelineProps {
   handleRangeChange: (time: number) => void;
-  videoRef: React.RefObject<HTMLVideoElement | null>;
+  isPlaying: boolean;
 }
 
 export default function VideoTimeLine({
-  videoRef,
   handleRangeChange,
+  isPlaying,
 }: IVideoTimelineProps) {
-  const [duration, setDuration] = useState(30);
   const [currentTime, setCurrentTime] = useState(0);
+  const duration = 30;
   const timelineRef = useRef<HTMLDivElement | null>(null);
-  const { overlays, updateOverlay } = useOverlay();
+  const { overlays, updateOverlay, setActiveTextId } = useOverlay();
+
+  const isDragging = useRef(false);
+  const dragType = useRef<"startTime" | "endTime" | null>(null);
+  const activeOverlayId = useRef<string | null>(null);
+  const { addVideo } = useOverlay();
+
+  const [{ isOver }, drop] = useDrop(() => ({
+    accept: "VIDEO",
+    drop: async (item: { file: File; url: string }, monitor) => {
+      if (!timelineRef.current) return;
+
+      const offset = monitor.getSourceClientOffset();
+
+      if (!offset) return;
+
+      addVideo(item.file);
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+    }),
+  }));
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const updateDuration = () => {
-      setDuration(Math.floor(video.duration));
-    };
-
     let intervalId: NodeJS.Timeout;
 
-    const updateCurrentTime = () => {
+    if (isPlaying) {
       intervalId = setInterval(() => {
-        setCurrentTime((prev) => {
-          if (video.currentTime !== prev) {
-            return Math.round(video.currentTime * 10) / 10;
-          }
-          return prev;
-        });
-      }, 100);
-    };
-
-    video.addEventListener("loadedmetadata", updateDuration);
-    video.addEventListener("timeupdate", updateCurrentTime);
-    video.addEventListener("pause", () => clearInterval(intervalId));
-    video.addEventListener("ended", () => clearInterval(intervalId));
-
-    return () => {
-      video.removeEventListener("loadedmetadata", updateDuration);
-      video.removeEventListener("timeupdate", updateCurrentTime);
-      video.removeEventListener("pause", () => clearInterval(intervalId));
-      video.removeEventListener("ended", () => clearInterval(intervalId));
+        setCurrentTime((prev) => Math.min(prev + 0.01, duration));
+      }, 10);
+    } else {
       clearInterval(intervalId);
-    };
-  }, [videoRef]);
+    }
+    return () => clearInterval(intervalId);
+  }, [isPlaying]);
+
+  const formatTime = (time: number) => {
+    const seconds = Math.floor(time);
+    const milliseconds = Math.floor((time % 1) * 100);
+    return `${String(seconds).padStart(2, "0")}:${String(milliseconds).padStart(
+      2,
+      "0"
+    )}`;
+  };
+
+  const handleDragStart = (
+    overlayId: string,
+    type: "startTime" | "endTime"
+  ) => {
+    isDragging.current = true;
+    dragType.current = type;
+    activeOverlayId.current = overlayId;
+  };
 
   const handleMouseMove = (event: React.MouseEvent) => {
     if (!timelineRef.current) return;
 
-    const timeline = timelineRef.current;
-    const rect = timeline.getBoundingClientRect();
+    const rect = timelineRef.current.getBoundingClientRect();
     const newTime = Math.min(
       Math.max(((event.clientX - rect.left) / rect.width) * duration, 0),
       duration
@@ -63,95 +81,138 @@ export default function VideoTimeLine({
     handleRangeChange(newTime);
   };
 
+  const handleDragEnd = () => {
+    isDragging.current = false;
+    dragType.current = null;
+    activeOverlayId.current = null;
+  };
+
+  useEffect(() => {
+    const handleDragMove = (e: React.MouseEvent) => {
+      if (!isDragging.current || !activeOverlayId.current || !dragType.current)
+        return;
+
+      const rect = timelineRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      let newTime = ((e.clientX - rect.left) / rect.width) * duration;
+      newTime = Math.round(Math.min(Math.max(newTime, 0), duration) * 10) / 10;
+
+      updateOverlay(activeOverlayId.current, { [dragType.current]: newTime });
+    };
+
+    window.addEventListener("mousemove", handleDragMove);
+    window.addEventListener("mouseup", handleDragEnd);
+    return () => {
+      window.removeEventListener("mousemove", handleDragMove);
+      window.removeEventListener("mouseup", handleDragEnd);
+    };
+  }, [updateOverlay]);
+
   return (
-    <div className="relative w-full flex flex-col gap-2">
+    <div className="relative w-full flex flex-col gap-2 select-none">
       <div
-        ref={timelineRef}
-        className="relative w-full bg-gray-300 p-2 min-h-40 cursor-pointer border border-gray-400 overflow-hidden"
-        onClick={handleMouseMove}
+        ref={drop}
+        className={`bg-[#080E17] px-[25px] py-[16px] min-h-[326px] h-full border-t-[1px] border-t-[#20293C] ${
+          isOver ? "bg-gray-700" : ""
+        }`}
       >
         <div
-          className="absolute top-0 left-0 bg-green-500"
-          style={{
-            width: `${(currentTime / duration) * 100}%`,
-            height: "100%",
-          }}
-        />
-        <div className="relative flex items-end w-full h-6">
-          {Array.from({ length: duration * 2 + 1 }).map((_, index) => {
-            const timeLabel = (index / 2).toFixed(0);
-            return (
-              <div
-                key={index}
-                className="flex flex-col items-center"
-                style={{
-                  position: "absolute",
-                  left: `${(index / (duration * 2)) * 100}%`,
-                  transform: "translateX(-50%)",
-                }}
-              >
+          className="relative w-full min-h-[254px]"
+          ref={timelineRef}
+          onClick={handleMouseMove}
+        >
+          <div className="flex justify-center gap-1 items-center text-white text-[16px] px-4">
+            <span>{formatTime(currentTime)}</span>
+            <span>/</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+          <div className="relative flex items-end w-full h-6">
+            <div className="absolute h-[1px] w-[100vw] bg-[#9CA3AF]"></div>
+            {Array.from({ length: duration * 2 + 1 }).map((_, index) => {
+              const timeLabel = (index / 2).toFixed(0);
+              return (
                 <div
-                  className="bg-gray-600"
+                  key={index}
+                  className="flex flex-row"
                   style={{
-                    width: "1px",
-                    height: index % 2 === 0 ? "10px" : "6px",
+                    position: "absolute",
+                    left: `${(index / (duration * 2)) * 100}%`,
                   }}
-                />
-                {index % 2 === 0 && (
-                  <span className="text-md text-gray-900">{timeLabel}</span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        <div
-          className="absolute top-0 bottom-0 w-1 bg-green-700"
-          style={{
-            left: `${(currentTime / duration) * 100}%`,
-            transform: "translateX(-50%)",
-          }}
-        />
-
-        <div className="relative w-full flex flex-col gap-1 py-4">
-          {overlays.map((item) => {
-            let imageCount = 1;
-
-            if (item.type === "text") {
-              return (
-                <div
-                  key={item.id}
-                  className="w-full p-4 opacity-80 text-2xl bg-red-300 rounded"
-                  style={
-                    {
-                      // left: `${(item.startTime / duration) * 100}%`,
-                      // width: `${((item.endTime - item.startTime) / duration) * 100}%`,
-                    }
-                  }
                 >
-                  {item.content}
+                  <div
+                    className="bg-gray-600 absolute"
+                    style={{
+                      width: "1px",
+                      height: index % 2 === 0 ? "10px" : "6px",
+                    }}
+                  />
+                  {index % 2 === 0 && (
+                    <span className="text-[10px] left-1 absolute text-[#9CA3AF]">
+                      {timeLabel}
+                    </span>
+                  )}
                 </div>
               );
-            }
-            if (item.type === "image") {
-              imageCount++;
+            })}
+          </div>
 
-              return (
-                <div
-                  key={item.id}
-                  className={`w-full h-3 bg-blue-300 rounded`}
-                  style={
-                    {
-                      // left: `${(item.startTime / duration) * 100}%`,
-                      // width: `${((item.endTime - item.startTime) / duration) * 100}%`,
-                    }
-                  }
-                >
-                  Image {imageCount}
-                </div>
-              );
-            }
-          })}
+          <div
+            className="absolute top-0 bottom-0 z-999 w-[10px] mt-[66px]"
+            style={{
+              left: `${(currentTime / duration) * 100}%`,
+              transform: "translateX(-50%)",
+            }}
+          >
+            <img src={union} alt="timeline line" />
+          </div>
+
+          <div className="relative w-full flex flex-col h-10 gap-1 mt-[30px] py-4">
+            {overlays.map((item) => {
+              if (item.type === "text") {
+                return (
+                  <div
+                    onClick={() => setActiveTextId(item.id)}
+                    key={item.id}
+                    className="relative min-h-10 bg-[#141A23] py-2 border-[3px] border-[#024EE6] flex items-center"
+                    style={{
+                      left: `${(item.startTime / duration) * 100}%`,
+                      width: `${
+                        ((item.endTime - item.startTime) / duration) * 100
+                      }%`,
+                    }}
+                  >
+                    <div
+                      className="absolute left-0 w-1 h-full bg-[#024EE6] cursor-ew-resize"
+                      onMouseDown={() => handleDragStart(item.id, "startTime")}
+                    />
+                    <div className="flex-1 text-white text-[16px] text-center">
+                      {item.content}
+                    </div>
+                    <div
+                      className="absolute right-0 w-1 h-full bg-[#024EE6] cursor-ew-resize"
+                      onMouseDown={() => handleDragStart(item.id, "endTime")}
+                    />
+                  </div>
+                );
+              }
+
+              if (item.type === "video") {
+                return (
+                  <div
+                    key={item.id}
+                    className="relative h-10 min-h-10 border-[3px] border-[#024EE6] flex items-center"
+                    style={{
+                      background: `url(${item.videoThumbnailUrl}) repeat center center`,
+                      backgroundSize: "auto 100%",
+                      left: `${(item.startTime / duration) * 100}%`,
+                      width: `${(item.duration / duration) * 100}%`,
+                    }}
+                  ></div>
+                );
+              }
+            })}
+          </div>
         </div>
       </div>
     </div>

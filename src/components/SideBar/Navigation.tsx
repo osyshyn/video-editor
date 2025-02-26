@@ -1,29 +1,13 @@
 import { FC } from "react";
-import {
-  FaLayerGroup,
-  FaTextHeight,
-  FaVideo,
-  FaImage,
-  FaMusic,
-  FaBorderAll,
-} from "react-icons/fa";
-import { MdPermMedia } from "react-icons/md";
-import { BsPlugin, BsRecordCircle } from "react-icons/bs";
-import { TbTransitionBottomFilled } from "react-icons/tb";
-import { IoIosMore } from "react-icons/io";
-
+import { FaLayerGroup, FaTextHeight, FaImage, FaMusic } from "react-icons/fa";
+import { MdGif, MdPermMedia } from "react-icons/md";
 const menuItems = [
   { icon: <MdPermMedia />, label: "Media" },
   { icon: <FaLayerGroup />, label: "Layers" },
   { icon: <FaTextHeight />, label: "Text" },
-  { icon: <FaVideo />, label: "Videos" },
   { icon: <FaImage />, label: "Images" },
-  { icon: <FaBorderAll />, label: "Elements" },
+  { icon: <MdGif />, label: "GIF" },
   { icon: <FaMusic />, label: "Audio" },
-  { icon: <BsPlugin />, label: "Plugins" },
-  { icon: <TbTransitionBottomFilled />, label: "Transitions" },
-  { icon: <BsRecordCircle />, label: "Record" },
-  { icon: <IoIosMore />, label: "More" },
 ];
 
 interface NavigationProps {
@@ -38,10 +22,9 @@ export const Navigation: FC<NavigationProps> = ({ onSelect }) => {
           key={index}
           className="flex flex-col items-center text-gray-400 hover:text-white transition-colors cursor-pointer"
           onClick={() => {
-            console.log("Selected item:", item.label); // Для проверки
+            console.log("Selected item:", item.label);
             onSelect(item.label);
           }}
-          // Здесь проверяем, что клики передаются
         >
           <div className="text-2xl">{item.icon}</div>
           <p className="text-xs mt-1">{item.label}</p>

@@ -120,21 +120,48 @@ export default function VideoTrimer({
   };
 
   return (
-    <div className="relative w-full flex justify-center items-center py-6 rounded">
+    <div className="relative w-full flex justify-center items-center h-20 rounded">
       <div
         ref={timelineRef}
-        className="w-full h-4 bg-gray-300 rounded cursor-pointer relative"
+        className="w-full h-20 p-2 bg-gray-300 rounded cursor-pointer relative"
         onClick={handleMouseMove}
         onMouseMove={handleDragMove}
         onMouseUp={handleDragEnd}
         onMouseLeave={handleDragEnd}
       >
         <div
-          className="absolute top-0 left-0 h-4 bg-green-500"
+          className="absolute top-0 left-0 h-20 bg-green-500"
           style={{ width: `${(currentTime / duration) * 100}%` }}
         />
+        <div className="relative flex items-end w-full h-6">
+          {Array.from({ length: duration * 2 + 1 }).map((_, index) => {
+            const timeLabel = (index / 2).toFixed(0);
+            return (
+              <div
+                key={index}
+                className="flex flex-col items-center"
+                style={{
+                  position: "absolute",
+                  left: `${(index / (duration * 2)) * 100}%`,
+                  transform: "translateX(-50%)",
+                }}
+              >
+                <div
+                  className="bg-gray-600"
+                  style={{
+                    width: "1px",
+                    height: index % 2 === 0 ? "10px" : "6px",
+                  }}
+                />
+                {index % 2 === 0 && (
+                  <span className="text-sm text-gray-900">{timeLabel}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
         <div
-          className="absolute top-0 left-0 h-4 bg-blue-500 opacity-50"
+          className="absolute top-0 left-0 h-20 bg-blue-500 opacity-50"
           style={{
             width: `${((endTime - startTime) / duration) * 100}%`,
             left: `${(startTime / duration) * 100}%`,
@@ -144,10 +171,9 @@ export default function VideoTrimer({
           className="absolute top-0"
           style={{
             left: `${(startTime / duration) * 100}%`,
-            width: "16px",
-            height: "16px",
+            width: "6px",
+            height: "100%",
             backgroundColor: "red",
-            borderRadius: "50%",
             transform: "translateX(-50%)",
             cursor: "ew-resize",
           }}
@@ -157,10 +183,9 @@ export default function VideoTrimer({
           className="absolute top-0"
           style={{
             left: `${(endTime / duration) * 100}%`,
-            width: "16px",
-            height: "16px",
+            width: "6px",
+            height: "100%",
             backgroundColor: "red",
-            borderRadius: "50%",
             transform: "translateX(-50%)",
             cursor: "ew-resize",
           }}

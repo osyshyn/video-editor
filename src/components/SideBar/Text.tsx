@@ -1,54 +1,12 @@
-import React, { FC, useState } from "react";
 import { Button } from "../ui/button";
 import { useOverlay } from "../context/OverlayContext";
 
-interface TextDrawerProps {
-  onTextChange: (text: string) => void;
-  onPositionChange: (position: { x: number; y: number }) => void;
-}
-
-const TextDrawer: FC<TextDrawerProps> = ({
-  onTextChange,
-  onPositionChange,
-}) => {
-  const {
-    updateOverlay,
-    addText,
-    activeTextId,
-    setActiveTextId,
-    overlays,
-    isVideoFile,
-  } = useOverlay();
-
-  const [text, setText] = useState<string>("");
-  const [positionX, setPositionX] = useState<number>(0);
-  const [positionY, setPositionY] = useState<number>(0);
-
-  const handleTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setText(event.target.value);
-    onTextChange(event.target.value);
-  };
-
-  const handlePositionXChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const x = parseInt(event.target.value);
-    setPositionX(x);
-    onPositionChange({ x, y: positionY });
-  };
-
-  const handlePositionYChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const y = parseInt(event.target.value);
-    setPositionY(y);
-    onPositionChange({ x: positionX, y });
-  };
+const TextDrawer = () => {
+  const { updateOverlay, addText, activeTextId, overlays } = useOverlay();
 
   return (
     <div className="flex flex-col">
-      <h1 className="text-3xl font-bold text-white">Add Text</h1>
-      {isVideoFile ? (
+      {overlays.length > 0 ? (
         <div className="p-6 rounded-lg shadow-lg w-80 space-y-6 bg-gray-800 text-white mt-10">
           <Button
             onClick={addText}
@@ -58,7 +16,6 @@ const TextDrawer: FC<TextDrawerProps> = ({
           </Button>
           {activeTextId && (
             <div className="space-y-4 flex flex-col items-center">
-              {/* Font Size Controls */}
               <div>
                 <label className="block text-sm mb-2">Font Size:</label>
                 <div className="flex items-center space-x-2">
@@ -112,8 +69,6 @@ const TextDrawer: FC<TextDrawerProps> = ({
                   </button>
                 </div>
               </div>
-
-              {/* Text Color Picker */}
               <div>
                 <label className="block text-sm mb-2">Text Color:</label>
                 <input

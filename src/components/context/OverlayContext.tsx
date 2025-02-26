@@ -1,3 +1,4 @@
+import { generateThumbnail, getVideoDuration } from "@/lib/utils";
 import {
   createContext,
   useContext,
@@ -9,24 +10,27 @@ import {
 
 export interface OverlayItem {
   id: string;
-  type: "image" | "text";
+  type: "image" | "text" | "video";
   file?: File;
   url?: string;
   content?: string;
-  x: number;
-  y: number;
+  videoThumbnailUrl?: string;
+  x?: number;
+  y?: number;
   width?: number;
   height?: number;
   size?: number;
   color?: string;
-  startTime: number;
-  endTime: number;
+  startTime?: number;
+  endTime?: number;
+  duration?: number;
 }
 
 interface OverlayContextType {
   overlays: OverlayItem[];
   addImage: (file: File | null, url: string) => void;
   addText: () => void;
+  addVideo: (file: Blob | MediaSource) => void;
   updateOverlay: (id: string, newData: Partial<OverlayItem>) => void;
   setOverlays: (newOverlays: OverlayItem[]) => void;
   activeTextId: string | null;
@@ -52,7 +56,7 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
     const newImage: OverlayItem = {
       id: Date.now().toString(),
       type: "image",
-      file,
+      file: file as File,
       url,
       x: 10,
       y: 10,
@@ -62,6 +66,20 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
       endTime: 10,
     };
     setOverlays((prev) => [...prev, newImage]);
+  };
+
+  const addVideo = async (file: Blob | MediaSource) => {
+    const newVideo: OverlayItem = {
+      id: Date.now().toString(),
+      type: "video",
+      url: URL.createObjectURL(file),
+      file: file as File,
+      duration: await getVideoDuration(file),
+      videoThumbnailUrl: await generateThumbnail(file as File),
+      startTime: 0,
+    };
+
+    setOverlays((prev) => [...prev, newVideo]);
   };
 
   const addText = () => {
@@ -89,6 +107,7 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
   return (
     <OverlayContext.Provider
       value={{
+        addVideo,
         overlays,
         addImage,
         addText,

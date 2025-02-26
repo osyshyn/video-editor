@@ -1,34 +1,47 @@
-import { FC } from "react";
-import { useMedia } from "../context/MediaContextType";
+import { FC, useEffect, useState } from "react";
+
+import { useDrag } from "react-dnd";
+
+const DraggableVideo: FC<{ file: File; url: string }> = ({ file, url }) => {
+  const [{ isDragging }, drag] = useDrag(() => ({
+    type: "VIDEO",
+    item: { file, url },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  }));
+
+  return (
+    <div ref={drag} className={`cursor-grab ${isDragging ? "opacity-50" : ""}`}>
+      <video className="w-full h-auto rounded-lg">
+        <source src={url} type={file.type} />
+        Your browser does not support the video tag.
+      </video>
+    </div>
+  );
+};
 
 export const Media: FC = () => {
-  const { mediaFiles, addMedia, selectMedia, deselectMedia, selectedMedia } =
-    useMedia();
+  const [media, setMedia] = useState<File[]>([]);
+  const [mediaURLs, setMediaURLs] = useState<string[]>([]);
 
-  console.log("Selected media:", selectedMedia);
+  useEffect(() => {
+    return () => {
+      mediaURLs.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [mediaURLs]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      const newMediaFiles: string[] = [];
-      Array.from(files).forEach((file) => {
-        if (file.type.startsWith("video/")) {
-          const fileURL = URL.createObjectURL(file);
-          newMediaFiles.push(fileURL);
-        }
-      });
-      addMedia(newMediaFiles);
-    }
-  };
+      const newFiles = Array.from(files).filter((file) =>
+        file.type.startsWith("video/")
+      );
 
-  const toggleSelection = (media: string) => {
-    console.log("Toggling selection for:", media);
-    if (selectedMedia.includes(media)) {
-      deselectMedia(media);
-      console.log("Deselecting:", media);
-    } else {
-      selectMedia(media);
-      console.log("Selecting:", media);
+      setMedia((prev) => [...prev, ...newFiles]);
+
+      const newURLs = newFiles.map((file) => URL.createObjectURL(file));
+      setMediaURLs((prev) => [...prev, ...newURLs]);
     }
   };
 
@@ -50,27 +63,11 @@ export const Media: FC = () => {
           onChange={handleFileChange}
         />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {mediaFiles.map((file, index) => (
-          <div
-            key={index}
-            className="relative overflow-hidden rounded-lg shadow-lg bg-white"
-            onClick={() => toggleSelection(file)}
-          >
-            <div
-              className={`absolute top-2 right-2 text-white ${
-                selectedMedia.includes(file) ? "bg-blue-500" : "bg-gray-500"
-              }`}
-            >
-              {selectedMedia.includes(file) ? "Selected" : "Select"}
-            </div>
-            <video className="w-full h-auto rounded-lg" controls>
-              <source src={file} type="video/mp4" />
-              <source src={file} type="video/quicktime" />
-              Your browser does not support the video tag.
-            </video>
-          </div>
-        ))}
+      <div className="flex flex-col gap-6">
+        {media.map((file, index) => {
+          const url = URL.createObjectURL(file);
+          return <DraggableVideo key={index} file={file} url={url} />;
+        })}
       </div>
     </div>
   );

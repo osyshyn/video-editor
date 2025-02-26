@@ -4,19 +4,15 @@ import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { Button } from "@/components/ui/button";
 import VideoTimeLine from "./VideoTimeLine/VideoTimeLine";
 import VideoTrimer from "./VideoTimeLine/VideoTrimer";
-import { Select } from "./ui/select";
 import { useOverlay } from "./context/OverlayContext";
-
-export default function VideoEditor() {
+export default function VideoEditor({
+  selectedItem,
+}: {
+  selectedItem: string;
+}) {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  // const [imageFile, setImageFile] = useState<File | null>(null);
-  // const [imageURL, setImageURL] = useState<string>("");
-  // const [imageX, setImageX] = useState(10);
-  // const [imageY, setImageY] = useState(10);
-  // const [imageWidth, setImageWidth] = useState(100);
-  // const [imageHeight, setImageHeight] = useState(100);
-  // const [imageOverlayActive, setImageOverlayActive] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
     const handleMouseUp = () => setDragging(false);
@@ -44,7 +40,6 @@ export default function VideoEditor() {
     activeTextId,
     setActiveTextId,
     updateOverlay,
-    setIsVideoFile,
     setImageOverlayActive,
     activeImageId,
   } = useOverlay();
@@ -89,32 +84,6 @@ export default function VideoEditor() {
     );
     await ffmpeg.writeFile("arial.ttf", fontData);
     setFontLoaded(true);
-  };
-
-  const togglePlay = () => {
-    if (videoRef.current) {
-      if (videoRef.current.paused) {
-        videoRef.current.play();
-      } else {
-        videoRef.current.pause();
-      }
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    console.log("Selected file:", file);
-    if (file) {
-      setVideoFile(file);
-      setIsVideoFile(true);
-
-      if (videoRef.current) {
-        videoRef.current.src = URL.createObjectURL(file);
-        console.log("Video source set:", videoRef.current.src);
-        setEndTime(Number(videoRef.current.duration));
-        setIsVideoFile(true);
-      }
-    }
   };
 
   const handleTextDragEnd = (
@@ -293,55 +262,14 @@ export default function VideoEditor() {
   };
 
   return (
-    <div className="flex flex-col ml-[400px] items-center h-full w-full">
-      {!videoFile && (
-        <div className="absolute right-[50%] top-[50%] flex items-center justify-center w-[300px] transform translate-x-1/2 translate-y-[-50%]">
-          <label
-            htmlFor="dropzone-file"
-            className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600"
-          >
-            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-              <svg
-                className="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400"
-                aria-hidden="true"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 20 16"
-              >
-                <path
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
-                />
-              </svg>
-              <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
-                <span className="font-semibold">Click to upload</span>
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">MP4</p>
-            </div>
-            <input
-              id="dropzone-file"
-              type="file"
-              accept="video/*"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </label>
-        </div>
-      )}
-
+    <div className="flex flex-col items-center h-full w-full">
       {videoFile && (
         <div
           ref={videoContainerRef}
-          className="relative p-5 w-full flex h-[60%] flex-col items-center justify-center overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700"
+          onClick={() => setIsPlaying(!isPlaying)}
+          className=" ml-[400px] relative p-5 w-full flex h-[60%] flex-col items-center justify-center overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700"
         >
-          <video
-            ref={videoRef}
-            onClick={togglePlay}
-            className="mt-4 w-full h-full"
-          ></video>
+          <video ref={videoRef} className="mt-4 w-full h-full"></video>
           {overlays.map((text) => {
             if (text.type === "text") {
               return (
@@ -403,12 +331,13 @@ export default function VideoEditor() {
           })}
         </div>
       )}
-      {videoFile && (
-        <div className="w-full">
-          <VideoTimeLine
-            handleRangeChange={handleRangeChange}
-            videoRef={videoRef}
-          />
+      <div
+        className="relative left-10 z-9999 mt-auto"
+        style={{
+          width: "calc(100vw - 80px)",
+        }}
+      >
+        {selectedItem === "Trim" ? (
           <VideoTrimer
             handleRangeChange={handleRangeChange}
             videoRef={videoRef}
@@ -417,14 +346,19 @@ export default function VideoEditor() {
             endTime={endTime}
             setEndTime={setEndTime}
           />
-        </div>
-      )}
-      {videoFile && (
+        ) : (
+          <VideoTimeLine
+            handleRangeChange={handleRangeChange}
+            isPlaying={isPlaying}
+          />
+        )}
+      </div>
+      {videoFile && selectedItem === "Trim" && (
         <Button onClick={processVideo} disabled={loading}>
           {loading ? "Processing..." : "Trim Video"}
         </Button>
       )}
-      {videoFile && (
+      {/* {videoFile && (
         <>
           <button
             onClick={transcode}
@@ -434,7 +368,7 @@ export default function VideoEditor() {
             {processing ? "Processing..." : "Transcode Video"}
           </button>
         </>
-      )}
+      )} */}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import VideoTimeLine from "./VideoTimeLine/VideoTimeLine";
 import VideoTrimer from "./VideoTimeLine/VideoTrimer";
 import { useOverlay } from "./context/OverlayContext";
+import { FaPause, FaPlay } from "react-icons/fa";
 export default function VideoEditor({
   selectedItem,
 }: {
@@ -262,75 +263,82 @@ export default function VideoEditor({
   };
 
   return (
-    <div className="flex flex-col items-center h-full w-full">
-      {videoFile && (
+    <div className="flex flex-col items-center relative h-full w-full">
+      <div
+        ref={videoContainerRef}
+        className=" ml-[400px] relative p-5 w-full flex h-[60%] flex-col items-center justify-center overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700"
+      >
+        <video ref={videoRef} className="mt-4 w-full h-full"></video>
+        {overlays.map((text) => {
+          if (text.type === "text") {
+            return (
+              <div
+                key={text.id}
+                draggable
+                onDragEnd={(e) => handleTextDragEnd(e, text.id)}
+                onClick={() => setActiveTextId(text.id)}
+                style={{
+                  position: "absolute",
+                  left: text.x,
+                  top: text.y,
+                  padding: "4px",
+                  cursor: "move",
+                  outline: activeTextId === text.id ? "1px solid blue" : "none",
+                }}
+              >
+                <input
+                  type="text"
+                  value={text.content}
+                  onChange={(e) =>
+                    updateOverlay(text.id, { content: e.target.value })
+                  }
+                  className="p-1 border-0 bg-transparent"
+                  style={{ color: text.color, fontSize: text.size }}
+                  placeholder="Enter text"
+                />
+              </div>
+            );
+          }
+          if (text.type === "image") {
+            return (
+              <div
+                key={text.id}
+                ref={imageRef}
+                onMouseDown={handleMouseDown}
+                style={{
+                  position: "absolute",
+                  left: text.x,
+                  top: text.y,
+                  cursor: "grab",
+                  width: "200px",
+                  height: "200px",
+                  userSelect: "none",
+                }}
+              >
+                <img
+                  src={URL.createObjectURL(
+                    (text?.file || text?.url) as Blob | MediaSource
+                  )}
+                  alt="overlay"
+                  className="w-full h-full object-contain"
+                  draggable={false}
+                />
+              </div>
+            );
+          }
+        })}
         <div
-          ref={videoContainerRef}
           onClick={() => setIsPlaying(!isPlaying)}
-          className=" ml-[400px] relative p-5 w-full flex h-[60%] flex-col items-center justify-center overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700"
+          className=" absolute left-[50%] translate-x-[-50%] bottom-[0%] text-gray-400"
         >
-          <video ref={videoRef} className="mt-4 w-full h-full"></video>
-          {overlays.map((text) => {
-            if (text.type === "text") {
-              return (
-                <div
-                  key={text.id}
-                  draggable
-                  onDragEnd={(e) => handleTextDragEnd(e, text.id)}
-                  onClick={() => setActiveTextId(text.id)}
-                  style={{
-                    position: "absolute",
-                    left: text.x,
-                    top: text.y,
-                    padding: "4px",
-                    cursor: "move",
-                    outline:
-                      activeTextId === text.id ? "1px solid blue" : "none",
-                  }}
-                >
-                  <input
-                    type="text"
-                    value={text.content}
-                    onChange={(e) =>
-                      updateOverlay(text.id, { content: e.target.value })
-                    }
-                    className="p-1 border-0 bg-transparent"
-                    style={{ color: text.color, fontSize: text.size }}
-                    placeholder="Enter text"
-                  />
-                </div>
-              );
-            }
-            if (text.type === "image") {
-              return (
-                <div
-                  key={text.id}
-                  ref={imageRef}
-                  onMouseDown={handleMouseDown}
-                  style={{
-                    position: "absolute",
-                    left: text.x,
-                    top: text.y,
-                    cursor: "grab",
-                    width: "200px",
-                    height: "200px",
-                    userSelect: "none",
-                  }}
-                >
-                  <img
-                    src={URL.createObjectURL(
-                      (text?.file || text?.url) as Blob | MediaSource
-                    )}
-                    alt="overlay"
-                    className="w-full h-full object-contain"
-                    draggable={false}
-                  />
-                </div>
-              );
-            }
-          })}
+          {isPlaying ? (
+            <FaPause className="w-8 h-8" />
+          ) : (
+            <FaPlay className="w-8 h-8" />
+          )}
         </div>
-      )}
+      </div>
+
       <div
         className="relative left-10 z-9999 mt-auto"
         style={{

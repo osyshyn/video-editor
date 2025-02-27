@@ -10,6 +10,7 @@ import { MediaProvider } from "./components/context/MediaContextType";
 import ImageDrawer from "./components/SideBar/ImageDrawer";
 import { OverlayProvider } from "./components/context/OverlayContext";
 import AudioDrawer from "./components/SideBar/Audio";
+import GifDrawer from "./components/SideBar/Gif";
 
 function App() {
   const [selectedItem, setSelectedItem] = useState<string>("Media");
@@ -22,8 +23,6 @@ function App() {
         return <Media />;
       case "Audio":
         return <AudioDrawer />;
-      case "Layers":
-        return <Media />;
       case "Text":
         return <TextDrawer />;
       case "Videos":
@@ -31,7 +30,7 @@ function App() {
       case "Images":
         return <ImageDrawer />;
       case "GIF":
-        return <ImageDrawer />;
+        return <GifDrawer />;
       default:
         return <Media />;
     }

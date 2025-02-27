@@ -1,9 +1,8 @@
 import { FC } from "react";
-import { FaLayerGroup, FaTextHeight, FaImage, FaMusic } from "react-icons/fa";
+import { FaTextHeight, FaImage, FaMusic } from "react-icons/fa";
 import { MdGif, MdPermMedia } from "react-icons/md";
 const menuItems = [
   { icon: <MdPermMedia />, label: "Media" },
-  { icon: <FaLayerGroup />, label: "Layers" },
   { icon: <FaTextHeight />, label: "Text" },
   { icon: <FaImage />, label: "Images" },
   { icon: <MdGif />, label: "GIF" },

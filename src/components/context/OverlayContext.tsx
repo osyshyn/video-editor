@@ -14,7 +14,7 @@ import {
 
 export interface OverlayItem {
   id: string;
-  type: "image" | "text" | "video" | "audio";
+  type: "image" | "text" | "video" | "audio" | "gif";
   file?: File;
   url?: string;
   content?: string;
@@ -36,6 +36,7 @@ interface OverlayContextType {
   addText: () => void;
   addVideo: (file: Blob | MediaSource) => void;
   addAudio: (file: File, url: string) => void;
+  addGif: (file: File | null, url: string) => void;
   updateOverlay: (id: string, newData: Partial<OverlayItem>) => void;
   setOverlays: (newOverlays: OverlayItem[]) => void;
   activeTextId: string | null;
@@ -44,10 +45,14 @@ interface OverlayContextType {
   setActiveImageId: (id: string) => void;
   activeAudioId: string | null;
   setActiveAudioId: (id: string | null) => void;
+  activeGifId: string;
+  setActiveGifId: (id: string) => void;
   isVideoFile: boolean;
   setIsVideoFile: (isVideoFile: boolean) => void;
   imageOverlayActive: boolean;
   setImageOverlayActive: Dispatch<SetStateAction<boolean>>;
+  gifOverlayActive: boolean;
+  setGifOverlayActive: Dispatch<SetStateAction<boolean>>;
   audioOverlayActive: boolean;
   setAudioOverlayActive: Dispatch<SetStateAction<boolean>>;
 }
@@ -60,6 +65,8 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
   const [isVideoFile, setIsVideoFile] = useState<boolean>(false);
   const [imageOverlayActive, setImageOverlayActive] = useState<boolean>(false);
   const [audioOverlayActive, setAudioOverlayActive] = useState<boolean>(false);
+  const [gifOverlayActive, setGifOverlayActive] = useState<boolean>(false);
+  const [activeGifId, setActiveGifId] = useState<string>("");
   const [activeImageId, setActiveImageId] = useState<string>("");
   const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
 
@@ -74,6 +81,22 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
     };
     setOverlays((prev) => [...prev, newAudio]);
     setActiveAudioId(newAudio.id);
+  };
+
+  const addGif = (file: File | null, url: string) => {
+    const newImage: OverlayItem = {
+      id: Date.now().toString(),
+      type: "gif",
+      file: file as File,
+      url,
+      x: 10,
+      y: 10,
+      width: 100,
+      height: 100,
+      startTime: 0,
+      endTime: 10,
+    };
+    setOverlays((prev) => [...prev, newImage]);
   };
 
   const addImage = (file: File | null, url: string) => {
@@ -136,6 +159,7 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
         addText,
         addVideo,
         addAudio,
+        addGif,
         updateOverlay,
         setOverlays,
         activeTextId,
@@ -146,8 +170,12 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
         setActiveImageId,
         activeAudioId,
         setActiveAudioId,
+        activeGifId,
+        setActiveGifId,
         imageOverlayActive,
         setImageOverlayActive,
+        gifOverlayActive,
+        setGifOverlayActive,
         audioOverlayActive,
         setAudioOverlayActive,
       }}

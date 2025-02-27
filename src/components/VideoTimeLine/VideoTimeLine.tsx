@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useOverlay } from "../context/OverlayContext";
 import union from "../../assets/Union.svg";
 import { useDrop } from "react-dnd";
+import { TimeLines } from "./TimeLines";
 
 interface IVideoTimelineProps {
   handleRangeChange: (time: number) => void;
@@ -15,7 +16,7 @@ export default function VideoTimeLine({
   const [currentTime, setCurrentTime] = useState(0);
   const duration = 30;
   const timelineRef = useRef<HTMLDivElement | null>(null);
-  const { overlays, updateOverlay, setActiveTextId } = useOverlay();
+  const { updateOverlay } = useOverlay();
 
   const isDragging = useRef(false);
   const dragType = useRef<"startTime" | "endTime" | null>(null);
@@ -166,53 +167,7 @@ export default function VideoTimeLine({
           >
             <img src={union} alt="timeline line" />
           </div>
-
-          <div className="relative w-full flex flex-col h-10 gap-1 mt-[30px] py-4">
-            {overlays.map((item) => {
-              if (item.type === "text") {
-                return (
-                  <div
-                    onClick={() => setActiveTextId(item.id)}
-                    key={item.id}
-                    className="relative min-h-10 bg-[#141A23] py-2 border-[3px] border-[#024EE6] flex items-center"
-                    style={{
-                      left: `${(item.startTime / duration) * 100}%`,
-                      width: `${
-                        ((item.endTime - item.startTime) / duration) * 100
-                      }%`,
-                    }}
-                  >
-                    <div
-                      className="absolute left-0 w-1 h-full bg-[#024EE6] cursor-ew-resize"
-                      onMouseDown={() => handleDragStart(item.id, "startTime")}
-                    />
-                    <div className="flex-1 text-white text-[16px] text-center">
-                      {item.content}
-                    </div>
-                    <div
-                      className="absolute right-0 w-1 h-full bg-[#024EE6] cursor-ew-resize"
-                      onMouseDown={() => handleDragStart(item.id, "endTime")}
-                    />
-                  </div>
-                );
-              }
-
-              if (item.type === "video") {
-                return (
-                  <div
-                    key={item.id}
-                    className="relative h-10 min-h-10 border-[3px] border-[#024EE6] flex items-center"
-                    style={{
-                      background: `url(${item.videoThumbnailUrl}) repeat center center`,
-                      backgroundSize: "auto 100%",
-                      left: `${(item.startTime / duration) * 100}%`,
-                      width: `${(item.duration / duration) * 100}%`,
-                    }}
-                  ></div>
-                );
-              }
-            })}
-          </div>
+          <TimeLines duration={duration} handleDragStart={handleDragStart} />
         </div>
       </div>
     </div>

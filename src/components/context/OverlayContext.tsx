@@ -1,4 +1,8 @@
-import { generateThumbnail, getVideoDuration } from "@/lib/utils";
+import {
+  generateThumbnail,
+  getAudioDuration,
+  getVideoDuration,
+} from "@/lib/utils";
 import {
   createContext,
   useContext,
@@ -10,7 +14,7 @@ import {
 
 export interface OverlayItem {
   id: string;
-  type: "image" | "text" | "video";
+  type: "image" | "text" | "video" | "audio";
   file?: File;
   url?: string;
   content?: string;
@@ -21,7 +25,7 @@ export interface OverlayItem {
   height?: number;
   size?: number;
   color?: string;
-  startTime?: number;
+  startTime: number;
   endTime?: number;
   duration?: number;
 }
@@ -31,16 +35,21 @@ interface OverlayContextType {
   addImage: (file: File | null, url: string) => void;
   addText: () => void;
   addVideo: (file: Blob | MediaSource) => void;
+  addAudio: (file: File, url: string) => void;
   updateOverlay: (id: string, newData: Partial<OverlayItem>) => void;
   setOverlays: (newOverlays: OverlayItem[]) => void;
   activeTextId: string | null;
   setActiveTextId: (id: string | null) => void;
   activeImageId: string;
   setActiveImageId: (id: string) => void;
+  activeAudioId: string | null;
+  setActiveAudioId: (id: string | null) => void;
   isVideoFile: boolean;
   setIsVideoFile: (isVideoFile: boolean) => void;
   imageOverlayActive: boolean;
   setImageOverlayActive: Dispatch<SetStateAction<boolean>>;
+  audioOverlayActive: boolean;
+  setAudioOverlayActive: Dispatch<SetStateAction<boolean>>;
 }
 
 const OverlayContext = createContext<OverlayContextType | undefined>(undefined);
@@ -50,7 +59,22 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
   const [activeTextId, setActiveTextId] = useState<string | null>(null);
   const [isVideoFile, setIsVideoFile] = useState<boolean>(false);
   const [imageOverlayActive, setImageOverlayActive] = useState<boolean>(false);
+  const [audioOverlayActive, setAudioOverlayActive] = useState<boolean>(false);
   const [activeImageId, setActiveImageId] = useState<string>("");
+  const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
+
+  const addAudio = async (file: File, url: string) => {
+    const newAudio: OverlayItem = {
+      id: Date.now().toString(),
+      type: "audio",
+      file,
+      url,
+      startTime: 0,
+      duration: await getAudioDuration(file),
+    };
+    setOverlays((prev) => [...prev, newAudio]);
+    setActiveAudioId(newAudio.id);
+  };
 
   const addImage = (file: File | null, url: string) => {
     const newImage: OverlayItem = {
@@ -107,20 +131,25 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
   return (
     <OverlayContext.Provider
       value={{
-        addVideo,
         overlays,
         addImage,
         addText,
+        addVideo,
+        addAudio,
         updateOverlay,
         setOverlays,
         activeTextId,
         setActiveTextId,
         isVideoFile,
-        setActiveImageId,
-        activeImageId,
         setIsVideoFile,
+        activeImageId,
+        setActiveImageId,
+        activeAudioId,
+        setActiveAudioId,
         imageOverlayActive,
         setImageOverlayActive,
+        audioOverlayActive,
+        setAudioOverlayActive,
       }}
     >
       {children}

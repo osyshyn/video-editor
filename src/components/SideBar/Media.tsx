@@ -1,6 +1,7 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useEffect } from "react";
 
 import { useDrag } from "react-dnd";
+import { useMedia } from "../context/MediaContextType";
 
 const DraggableVideo: FC<{ file: File; url: string }> = ({ file, url }) => {
   const [{ isDragging }, drag] = useDrag(() => ({
@@ -22,8 +23,7 @@ const DraggableVideo: FC<{ file: File; url: string }> = ({ file, url }) => {
 };
 
 export const Media: FC = () => {
-  const [media, setMedia] = useState<File[]>([]);
-  const [mediaURLs, setMediaURLs] = useState<string[]>([]);
+  const { media, setMedia, mediaURLs, setMediaURLs } = useMedia();
 
   useEffect(() => {
     return () => {
@@ -63,7 +63,7 @@ export const Media: FC = () => {
           onChange={handleFileChange}
         />
       </div>
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 max-h-[500px] overflow-y-auto scrollbar scrollbar-thin scrollbar-thumb-blue-500 scrollbar-track-gray-200 scrollbar-w-1">
         {media.map((file, index) => {
           const url = URL.createObjectURL(file);
           return <DraggableVideo key={index} file={file} url={url} />;

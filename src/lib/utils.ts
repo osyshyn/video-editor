@@ -42,3 +42,20 @@ export const getVideoDuration = (file: Blob | MediaSource): Promise<number> => {
     video.src = URL.createObjectURL(file);
   });
 };
+
+export const getAudioDuration = (file: Blob | MediaSource): Promise<number> => {
+  return new Promise((resolve, reject) => {
+    const audio = document.createElement("audio");
+    audio.preload = "metadata";
+
+    audio.onloadedmetadata = () => {
+      resolve(audio.duration);
+    };
+
+    audio.onerror = () => {
+      reject("Error loading video");
+    };
+
+    audio.src = URL.createObjectURL(file);
+  });
+};

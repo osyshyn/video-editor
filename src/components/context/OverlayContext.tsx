@@ -78,6 +78,7 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
       url,
       startTime: 0,
       duration: await getAudioDuration(file),
+      endTime: await getAudioDuration(file),
     };
     setOverlays((prev) => [...prev, newAudio]);
     setActiveAudioId(newAudio.id);

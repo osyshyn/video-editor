@@ -1,4 +1,4 @@
-import { Button } from "../ui/button";
+import { FaMinus, FaPlus } from "react-icons/fa";
 import { useOverlay } from "../context/OverlayContext";
 
 const TextDrawer = () => {
@@ -6,19 +6,13 @@ const TextDrawer = () => {
 
   return (
     <div className="flex flex-col">
-      {overlays.length > 0 ? (
-        <div className="p-6 rounded-lg shadow-lg w-80 space-y-6 bg-gray-800 text-white mt-10">
-          <Button
-            onClick={addText}
-            className="w-full py-2 bg-blue-500 hover:bg-blue-600 rounded"
-          >
-            Add Text
-          </Button>
-          {activeTextId && (
-            <div className="space-y-4 flex flex-col items-center">
-              <div>
-                <label className="block text-sm mb-2">Font Size:</label>
-                <div className="flex items-center space-x-2">
+      <div className="p-6 rounded-lg text-base shadow-lg w-80 space-y-6 bg-gray-800 text-white">
+        {activeTextId && (
+          <>
+            <div className="space-y-4 flex flex-col w-full items-center">
+              <div className="w-full">
+                <label className="text-[12px] text-[#9CA3AF]">Font Size:</label>
+                <div className="flex items-center w-full font-semibold">
                   <button
                     onClick={() =>
                       activeTextId &&
@@ -30,9 +24,9 @@ const TextDrawer = () => {
                         ),
                       })
                     }
-                    className="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600"
+                    className="px-3 min-h-[48px] py-1 bg-[#05090F] rounded-tl rounded-bl"
                   >
-                    -
+                    <FaMinus />
                   </button>
                   <select
                     value={overlays.find((t) => t.id === activeTextId)?.size}
@@ -41,7 +35,7 @@ const TextDrawer = () => {
                         size: Number(e.target.value),
                       })
                     }
-                    className="px-3 py-1 bg-gray-700 text-white rounded"
+                    className="px-3 min-h-[48px] flex-1 text-center py-1 bg-[#05090F] text-white"
                   >
                     {[
                       12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 56, 64, 72, 80,
@@ -63,9 +57,9 @@ const TextDrawer = () => {
                         ),
                       })
                     }
-                    className="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600"
+                    className="px-3 min-h-[48px] py-1 rounded-tr rounded-br bg-[#05090F]"
                   >
-                    +
+                    <FaPlus />
                   </button>
                 </div>
               </div>
@@ -81,47 +75,32 @@ const TextDrawer = () => {
                 />
               </div>
             </div>
-          )}
-          <input
-            type="text"
-            value={overlays.find((t) => t.id === activeTextId)?.content || ""}
-            onChange={(e) =>
-              activeTextId &&
-              updateOverlay(activeTextId, { content: e.target.value })
-            }
-            className="mt-2 p-2 border rounded w-full"
-            placeholder="Enter a text"
-          />
-          <div className="mt-2 flex space-x-4">
-            <div>
-              <label className="block text-sm">Position X:</label>
-              <input
-                type="number"
-                value={overlays.find((t) => t.id === activeTextId)?.x || 0}
+
+            <div className="flex flex-col items-start gap-1">
+              <label className="text-[12px] text-[#9CA3AF]">Text</label>
+              <textarea
+                value={
+                  overlays.find((t) => t.id === activeTextId)?.content || ""
+                }
                 onChange={(e) =>
                   activeTextId &&
-                  updateOverlay(activeTextId, { x: Number(e.target.value) })
+                  updateOverlay(activeTextId, { content: e.target.value })
                 }
-                className="p-2 border rounded w-24"
+                className="p-2 border rounded resize-none w-full bg-[#05090F] border-none focus:outline-none text-base"
+                placeholder="Enter a text"
               />
             </div>
-            <div>
-              <label className="block text-sm">Position Y:</label>
-              <input
-                type="number"
-                value={overlays.find((t) => t.id === activeTextId)?.y || 0}
-                onChange={(e) =>
-                  activeTextId &&
-                  updateOverlay(activeTextId, { y: Number(e.target.value) })
-                }
-                className="p-2 border rounded w-24"
-              />
-            </div>
-          </div>
+          </>
+        )}
+        <div className="w-full" onClick={addText}>
+          <label
+            htmlFor="media-upload"
+            className="cursor-pointer w-full text-white bg-blue-600 hover:bg-blue-700 py-2 px-6 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105"
+          >
+            Add Text
+          </label>
         </div>
-      ) : (
-        <p className="text-white mt-10">Upload media</p>
-      )}
+      </div>
     </div>
   );
 };

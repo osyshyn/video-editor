@@ -1,19 +1,23 @@
 import { useState, useRef, useEffect } from "react";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { Button } from "@/components/ui/button";
 import VideoTimeLine from "./VideoTimeLine/VideoTimeLine";
-import VideoTrimer from "./VideoTimeLine/VideoTrimer";
-import { useOverlay } from "./context/OverlayContext";
+import { OverlayItem, useOverlay } from "./context/OverlayContext";
 import { FaPause, FaPlay } from "react-icons/fa";
+import { useTrimContext } from "./context/TrimContext";
+import { useTimeLineContext } from "./context/TimeLineContext";
+import { useTrimSyncWithPlayer } from "@/hooks/useTrimSyncWithPlayer";
+import { useLoadFfmpeg } from "@/hooks/useLoadFfmpeg";
 export default function VideoEditor({
   selectedItem,
+  setSelectedItem,
 }: {
   selectedItem: string;
+  setSelectedItem: React.Dispatch<React.SetStateAction<string>>;
 }) {
-  const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [overlay, setOverlay] = useState<OverlayItem | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const { timeHasSetted, setTimeHasSetted, setCurrentTime } =
+    useTimeLineContext();
 
   useEffect(() => {
     const handleMouseUp = () => setDragging(false);
@@ -22,14 +26,7 @@ export default function VideoEditor({
   }, []);
 
   const ffmpegRef = useRef(new FFmpeg());
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const messageRef = useRef<HTMLParagraphElement | null>(null);
-
-  const [startTime, setStartTime] = useState(0);
-  const [endTime, setEndTime] = useState(30);
-
-  const [processing, setProcessing] = useState(false);
-  const [fontLoaded, setFontLoaded] = useState(false);
+  const { videoRef, duration } = useTrimContext();
 
   const [dragging, setDragging] = useState(false);
 
@@ -41,51 +38,28 @@ export default function VideoEditor({
     activeTextId,
     setActiveTextId,
     updateOverlay,
-    setImageOverlayActive,
-    activeImageId,
+    selectedOverlayId,
   } = useOverlay();
 
   const [offsetX, setOffsetX] = useState(0);
   const [offsetY, setOffsetY] = useState(0);
 
   useEffect(() => {
-    const load = async () => {
-      const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm";
-      const ffmpeg = ffmpegRef.current;
-      ffmpeg.on("log", ({ message }) => {
-        if (messageRef.current) messageRef.current.innerHTML = message;
-      });
-      await ffmpeg.load({
-        coreURL: await toBlobURL(
-          `${baseURL}/ffmpeg-core.js`,
-          "text/javascript"
-        ),
-        wasmURL: await toBlobURL(
-          `${baseURL}/ffmpeg-core.wasm`,
-          "application/wasm"
-        ),
-      });
-      loadFont();
-    };
-    load();
-  }, []);
+    const fullOverlay = overlays.find(
+      (overlay) => overlay.id === selectedOverlayId
+    );
+    if (fullOverlay) setOverlay(fullOverlay);
+  }, [overlays, selectedOverlayId]);
+
+  useLoadFfmpeg(ffmpegRef);
 
   useEffect(() => {
-    if (videoFile && videoRef.current) {
-      const videoUrl = URL.createObjectURL(videoFile);
-      videoRef.current.src = videoUrl;
-      console.log("Updated video source:", videoUrl);
-    }
-  }, [videoFile]);
-
-  const loadFont = async () => {
-    const ffmpeg = ffmpegRef.current;
-    const fontData = await fetchFile(
-      "https://raw.githubusercontent.com/ffmpegwasm/testdata/master/arial.ttf"
-    );
-    await ffmpeg.writeFile("arial.ttf", fontData);
-    setFontLoaded(true);
-  };
+    setTimeout(() => {
+      if (videoRef.current && overlay?.file) {
+        videoRef.current.src = URL.createObjectURL(overlay.file);
+      }
+    }, 100);
+  }, [overlay?.file, videoRef]);
 
   const handleTextDragEnd = (
     e: React.DragEvent<HTMLDivElement>,
@@ -144,192 +118,109 @@ export default function VideoEditor({
     };
   }, [dragging, offsetX, offsetY, updateOverlay]);
 
-  const handleImageDragEnd = (
-    e: React.DragEvent<HTMLDivElement>,
-    id: string
-  ) => {
-    if (videoContainerRef.current) {
-      const rect = videoContainerRef.current.getBoundingClientRect();
-      const newX = e.clientX - rect.left;
-      const newY = e.clientY - rect.top;
-      const imageWidth =
-        overlays.find((t) => t.id === activeImageId)?.width || 100;
-      const imageHeight =
-        overlays.find((t) => t.id === activeImageId)?.width || 100;
+  useTrimSyncWithPlayer(
+    videoRef,
+    timeHasSetted,
+    isPlaying,
+    duration,
+    setCurrentTime,
+    setTimeHasSetted
+  );
 
-      // Optional: constrain the image within the bounds of the video container
-      const maxX = rect.width - imageWidth;
-      const maxY = rect.height - imageHeight;
-      updateOverlay(id, {
-        x: Math.min(Math.max(newX, 0), maxX),
-        y: Math.min(Math.max(newY, 0), maxY),
-      });
-    }
-  };
-
-  const transcode = async () => {
-    if (!videoFile || !fontLoaded) return;
-    setProcessing(true);
-    const ffmpeg = ffmpegRef.current;
-
-    try {
-      (ffmpeg as any).FS("unlink", "input.mp4");
-    } catch (err) {
-      console.log("Error deleting input.mp4", err);
-    }
-    try {
-      (ffmpeg as any).FS("unlink", "output.mp4");
-    } catch (err) {
-      console.log("Error deleting output.mp4", err);
-    }
-
-    const videoData = await fetchFile(videoFile);
-    await ffmpeg.writeFile("input.mp4", videoData);
-
-    const drawTextFilters = overlays.map((item) => {
-      const ffmpegColor = item.color?.startsWith("#")
-        ? item.color.replace("#", "0x")
-        : item.color;
-      return `drawtext=fontfile=/arial.ttf:text='${item.content}':x=${item.x}:y=${item.y}:fontsize=${item.size}:fontcolor=${ffmpegColor}`;
-    });
-    const execArgs =
-      drawTextFilters.length > 0
-        ? ["-i", "input.mp4", "-vf", drawTextFilters.join(","), "output.mp4"]
-        : ["-i", "input.mp4", "output.mp4"];
-
-    await ffmpeg.exec(execArgs);
-
-    const data = (await ffmpeg.readFile("output.mp4")) as Uint8Array;
-    const videoBlob = new Blob([data.buffer], { type: "video/mp4" });
-    const videoUrl = URL.createObjectURL(videoBlob);
-
+  const handleRangeChange = (startTime: number) => {
     if (videoRef.current) {
-      videoRef.current.src = videoUrl;
-    } else {
-      console.log("VideoRef: ", videoRef);
-    }
-    setProcessing(false);
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      setImageURL(URL.createObjectURL(file));
-      setImageOverlayActive(false);
-    }
-  };
-
-  const addImageToVideo = () => {
-    if (!videoFile || !imageFile) return;
-    setImageOverlayActive(true);
-  };
-
-  const processVideo = async () => {
-    if (!videoFile) return;
-    setLoading(true);
-
-    await ffmpegRef.current.writeFile("input.mp4", await fetchFile(videoFile));
-    await ffmpegRef.current.exec([
-      "-i",
-      "input.mp4",
-      "-ss",
-      `${startTime}`,
-      "-t",
-      `${endTime - startTime}`,
-      "-c",
-      "copy",
-      "output.mp4",
-    ]);
-
-    const fileData = await ffmpegRef.current.readFile("output.mp4");
-    const data = new Uint8Array(fileData as ArrayBuffer);
-    if (videoRef.current) {
-      videoRef.current.src = URL.createObjectURL(
-        new Blob([data.buffer], { type: "video/mp4" })
-      );
-    }
-    setVideoFile(
-      new File([data.buffer], "trimmed-video.mp4", { type: "video/mp4" })
-    );
-    setLoading(false);
-  };
-
-  const handleRangeChange = (event: number) => {
-    if (videoRef.current) {
-      console.log(videoRef.current.currentTime);
-      videoRef.current.currentTime = event;
+      videoRef.current.currentTime = startTime;
     }
   };
 
   return (
-    <div className="flex flex-col items-center relative h-full w-full">
+    <div className="flex flex-col bg-[#05090F] items-center relative h-full w-full">
+      <div className="mt-4 mr-4 self-end px-4 py-2 border-2 border-white rounded-2xl text-white cursor-pointer">
+        Render Video
+      </div>
       <div
         ref={videoContainerRef}
-        className=" ml-[400px] relative p-5 w-full flex h-[60%] flex-col items-center justify-center overflow-hidden shadow-lg bg-gray-50 dark:bg-gray-700"
+        className=" ml-[400px] relative p-5 w-full flex h-[60%] flex-col items-center justify-center overflow-hidden shadow-lg bg-[#05090F]"
       >
-        <video ref={videoRef} className="mt-4 w-full h-full"></video>
-        {overlays.map((text) => {
-          if (text.type === "text") {
-            return (
-              <div
-                key={text.id}
-                draggable
-                onDragEnd={(e) => handleTextDragEnd(e, text.id)}
-                onClick={() => setActiveTextId(text.id)}
-                style={{
-                  position: "absolute",
-                  left: text.x,
-                  top: text.y,
-                  padding: "4px",
-                  cursor: "move",
-                  outline: activeTextId === text.id ? "1px solid blue" : "none",
-                }}
-              >
-                <input
-                  type="text"
-                  value={text.content}
-                  onChange={(e) =>
-                    updateOverlay(text.id, { content: e.target.value })
-                  }
-                  className="p-1 border-0 bg-transparent"
-                  style={{ color: text.color, fontSize: text.size }}
-                  placeholder="Enter text"
-                />
-              </div>
-            );
-          }
-          if (text.type === "image") {
-            return (
-              <div
-                key={text.id}
-                ref={imageRef}
-                onMouseDown={handleMouseDown}
-                style={{
-                  position: "absolute",
-                  left: text.x,
-                  top: text.y,
-                  cursor: "grab",
-                  width: "200px",
-                  height: "200px",
-                  userSelect: "none",
-                }}
-              >
-                <img
-                  src={URL.createObjectURL(
-                    (text?.file || text?.url) as Blob | MediaSource
-                  )}
-                  alt="overlay"
-                  className="w-full h-full object-contain"
-                  draggable={false}
-                />
-              </div>
-            );
-          }
-        })}
+        <video
+          ref={overlay?.type === "video" ? videoRef : null}
+          className={`mt-4 w-full h-full ${
+            overlay?.type === "video" && selectedItem === "Trim"
+              ? "block"
+              : "hidden"
+          }`}
+        ></video>
+        <audio
+          ref={overlay?.type === "audio" ? videoRef : null}
+          className={`w-full ${
+            overlay?.type === "audio" && selectedItem === "Trim"
+              ? "block"
+              : "hidden"
+          }`}
+        ></audio>
+        {selectedItem !== "Trim" &&
+          overlays.map((text) => {
+            if (text.type === "text") {
+              return (
+                <div
+                  key={text.id}
+                  draggable
+                  onDragEnd={(e) => handleTextDragEnd(e, text.id)}
+                  onClick={() => setActiveTextId(text.id)}
+                  style={{
+                    position: "absolute",
+                    left: text.x,
+                    top: text.y,
+                    padding: "4px",
+                    cursor: "move",
+                    outline:
+                      activeTextId === text.id ? "1px solid blue" : "none",
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={text.content}
+                    onChange={(e) =>
+                      updateOverlay(text.id, { content: e.target.value })
+                    }
+                    className="p-1 border-0 bg-transparent"
+                    style={{ color: text.color, fontSize: text.size }}
+                    placeholder="Enter text"
+                  />
+                </div>
+              );
+            }
+            if (text.type === "image") {
+              return (
+                <div
+                  key={text.id}
+                  ref={imageRef}
+                  onMouseDown={handleMouseDown}
+                  style={{
+                    position: "absolute",
+                    left: text.x,
+                    top: text.y,
+                    cursor: "grab",
+                    width: "200px",
+                    height: "200px",
+                    userSelect: "none",
+                  }}
+                >
+                  <img
+                    src={URL.createObjectURL(
+                      (text?.file || text?.url) as Blob | MediaSource
+                    )}
+                    alt="overlay"
+                    className="w-full h-full object-contain"
+                    draggable={false}
+                  />
+                </div>
+              );
+            }
+          })}
         <div
           onClick={() => setIsPlaying(!isPlaying)}
-          className=" absolute left-[50%] translate-x-[-50%] bottom-[0%] text-gray-400"
+          className=" absolute left-[50%] translate-x-[-50%] bottom-[6%] text-gray-400"
         >
           {isPlaying ? (
             <FaPause className="w-8 h-8" />
@@ -345,27 +236,14 @@ export default function VideoEditor({
           width: "calc(100vw - 80px)",
         }}
       >
-        {selectedItem === "Trim" ? (
-          <VideoTrimer
-            handleRangeChange={handleRangeChange}
-            videoRef={videoRef}
-            setStartTime={setStartTime}
-            startTime={startTime}
-            endTime={endTime}
-            setEndTime={setEndTime}
-          />
-        ) : (
-          <VideoTimeLine
-            handleRangeChange={handleRangeChange}
-            isPlaying={isPlaying}
-          />
-        )}
+        <VideoTimeLine
+          isPlaying={isPlaying}
+          selectedItem={selectedItem}
+          handleRangeChange={handleRangeChange}
+          setSelectedItem={setSelectedItem}
+          handleSetOverlay={setOverlay}
+        />
       </div>
-      {videoFile && selectedItem === "Trim" && (
-        <Button onClick={processVideo} disabled={loading}>
-          {loading ? "Processing..." : "Trim Video"}
-        </Button>
-      )}
       {/* {videoFile && (
         <>
           <button

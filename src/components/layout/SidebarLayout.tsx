@@ -30,7 +30,7 @@ export default function SidebarLayout({
           <div className="z-20 border-t bg-background lg:h-full lg:border-r lg:border-t-0">
             {slots.navigation}
           </div>
-          <div className="relative z-10 h-[50vh] w-full flex-shrink-0 pl-0 lg:h-full lg:w-80">
+          <div className="relative z-10 h-[50vh] w-full flex-shrink-0 pl-0 lg:h-full lg:w-[400px]">
             {slots.assetsDrawer}
           </div>
         </div>

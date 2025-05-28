@@ -1,76 +1,104 @@
-import { useOverlay } from "../context/OverlayContext";
+import { OverlayItem, useOverlay } from "../context/OverlayContext";
+import { DraggableOverlayItem } from "./Draggable";
+import { TrimElement } from "./TrimElement";
 
 interface ITimeLinesProps {
+  selectedItem: string;
   duration: number;
   handleDragStart: (overlayId: string, type: "startTime" | "endTime") => void;
+  overlay: OverlayItem | null;
+  handleRangeChange: (startTime: number) => void;
+  setSelectedItem: React.Dispatch<React.SetStateAction<string>>;
+  timelineRef: React.RefObject<HTMLDivElement | null>;
 }
 
-export function TimeLines({ duration, handleDragStart }: ITimeLinesProps) {
+export function TimeLines({
+  duration,
+  handleDragStart,
+  selectedItem,
+  overlay,
+  handleRangeChange,
+  timelineRef,
+}: ITimeLinesProps) {
   const {
     overlays,
+    videoOverlays,
+    setOverlays,
     setActiveTextId,
     setActiveImageId,
     setActiveAudioId,
     setActiveGifId,
+    setImageOverlayActive,
+    setGifOverlayActive,
+    setAudioOverlayActive,
+    selectedOverlayId,
+    setSelectedOverlayId,
   } = useOverlay();
+
+  const moveOverlay = (dragIndex: number, hoverIndex: number) => {
+    if (dragIndex === hoverIndex) return;
+
+    setOverlays((prev: OverlayItem[]) => {
+      const updatedOverlays = [...prev];
+      const [movedItem] = updatedOverlays.splice(dragIndex, 1);
+      updatedOverlays.splice(hoverIndex, 0, movedItem);
+
+      return updatedOverlays.map((overlay, idx) => ({
+        ...overlay,
+        index: idx,
+      }));
+    });
+  };
 
   return (
     <div className="relative w-full flex flex-col max-h-[230px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#024EE6] scrollbar-track-[#141A23] gap-1 mt-[30px] py-4">
-      {overlays.map((item) => {
-        let audioCount = 0;
-        if (item.type === "audio") audioCount += 1;
-
-        return (
-          <div
-            className={`relative ${
-              item.type !== "text" && "h-10"
-            } min-h-10 bg-[#141A23] py-2 border-[3px] border-[#024EE6] flex items-center`}
-            style={{
-              background: `${
-                (item.type === "video" && `url(${item.videoThumbnailUrl})`) ||
-                ((item.type === "image" || item.type === "gif") &&
-                  `url(${item.url})`)
-              } repeat center center`,
-              backgroundSize: `${
-                (item.type === "video" || item.type === "audio") && "auto 100%"
-              }`,
-              left: `${(item.startTime / duration) * 100}%`,
-              width: `${
-                item.type === "video"
-                  ? (Number(item.duration) / duration) * 100
-                  : ((Number(item.endTime) - item.startTime) / duration) * 100
-              }%`,
-            }}
-            onClick={() => {
-              if (item.type === "text") setActiveTextId(item.id);
-              if (item.type === "image") setActiveImageId(item.id);
-              if (item.type === "audio") setActiveAudioId(item.id);
-              if (item.type === "gif") setActiveGifId(item.id);
-            }}
-          >
-            {item.type !== "video" && (
-              <>
-                {item.type !== "audio" && (
-                  <div
-                    className="absolute left-0 w-1 h-full bg-[#024EE6] cursor-ew-resize"
-                    onMouseDown={() => handleDragStart(item.id, "startTime")}
-                  />
-                )}
-                <div className="flex-1 text-white text-[16px] text-center">
-                  {item.type === "text" && item.content}
-                  {item.type === "audio" && `Audio ${audioCount}`}
-                </div>
-                {item.type !== "audio" && (
-                  <div
-                    className="absolute right-0 w-1 h-full bg-[#024EE6] cursor-ew-resize"
-                    onMouseDown={() => handleDragStart(item.id, "endTime")}
-                  />
-                )}
-              </>
-            )}
+      {selectedItem === "Trim" &&
+      overlay &&
+      (overlay.type === "audio" || overlay.type === "video") ? (
+        <TrimElement
+          overlay={overlay}
+          duration={duration}
+          timelineRef={timelineRef}
+          handleRangeChange={handleRangeChange}
+        />
+      ) : (
+        <>
+          <div className="w-full flex flex-row">
+            {videoOverlays.map((item, index) => (
+              <DraggableOverlayItem
+                key={item.id}
+                index={index}
+                item={item}
+                selectedOverlayId={selectedOverlayId}
+                setSelectedOverlayId={setSelectedOverlayId}
+                duration={duration}
+                moveOverlay={moveOverlay}
+                handleDragStart={handleDragStart}
+              />
+            ))}
           </div>
-        );
-      })}
+          {overlays.map((item, index) => (
+            <DraggableOverlayItem
+              key={item.id}
+              index={index}
+              item={item}
+              audioCount={item.type === "audio" ? index + 1 : 0}
+              selectedOverlayId={selectedOverlayId}
+              setSelectedOverlayId={setSelectedOverlayId}
+              duration={duration}
+              moveOverlay={moveOverlay}
+              handleDragStart={handleDragStart}
+              setActiveTextId={setActiveTextId}
+              setActiveImageId={setActiveImageId}
+              setActiveAudioId={setActiveAudioId}
+              setActiveGifId={setActiveGifId}
+              setImageOverlayActive={setImageOverlayActive}
+              setGifOverlayActive={setGifOverlayActive}
+              setAudioOverlayActive={setAudioOverlayActive}
+            />
+          ))}
+        </>
+      )}
     </div>
   );
 }

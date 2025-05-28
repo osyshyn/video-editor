@@ -31,15 +31,17 @@ export const getVideoDuration = (file: Blob | MediaSource): Promise<number> => {
     const video = document.createElement("video");
     video.preload = "metadata";
 
+    const url = URL.createObjectURL(file);
+    video.src = url;
+
     video.onloadedmetadata = () => {
       resolve(video.duration);
+      URL.revokeObjectURL(url);
     };
 
     video.onerror = () => {
       reject("Error loading video");
     };
-
-    video.src = URL.createObjectURL(file);
   });
 };
 
@@ -48,8 +50,12 @@ export const getAudioDuration = (file: Blob | MediaSource): Promise<number> => {
     const audio = document.createElement("audio");
     audio.preload = "metadata";
 
+    const url = URL.createObjectURL(file);
+    audio.src = url;
+
     audio.onloadedmetadata = () => {
       resolve(audio.duration);
+      URL.revokeObjectURL(url);
     };
 
     audio.onerror = () => {

@@ -1,3 +1,4 @@
+import { Scissors } from "lucide-react";
 import { FC } from "react";
 import { FaTextHeight, FaImage, FaMusic } from "react-icons/fa";
 import { MdGif, MdPermMedia } from "react-icons/md";

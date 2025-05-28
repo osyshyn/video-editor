@@ -12,6 +12,10 @@ import {
   SetStateAction,
 } from "react";
 
+export interface OverlayItemIndex extends OverlayItem {
+  index: number;
+}
+
 export interface OverlayItem {
   id: string;
   type: "image" | "text" | "video" | "audio" | "gif";
@@ -31,6 +35,7 @@ export interface OverlayItem {
 }
 
 interface OverlayContextType {
+  videoOverlays: OverlayItem[];
   overlays: OverlayItem[];
   addImage: (file: File | null, url: string) => void;
   addText: () => void;
@@ -39,6 +44,7 @@ interface OverlayContextType {
   addGif: (file: File | null, url: string) => void;
   updateOverlay: (id: string, newData: Partial<OverlayItem>) => void;
   setOverlays: (newOverlays: OverlayItem[]) => void;
+  setVideoOverlays: (newOverlays: OverlayItem[]) => void;
   activeTextId: string | null;
   setActiveTextId: (id: string | null) => void;
   activeImageId: string;
@@ -55,11 +61,19 @@ interface OverlayContextType {
   setGifOverlayActive: Dispatch<SetStateAction<boolean>>;
   audioOverlayActive: boolean;
   setAudioOverlayActive: Dispatch<SetStateAction<boolean>>;
+  selectedOverlayId: string | null;
+  setSelectedOverlayId: Dispatch<SetStateAction<string | null>>;
+  deleteOverlay: () => void;
+  copyOverlay: () => void;
 }
 
 const OverlayContext = createContext<OverlayContextType | undefined>(undefined);
 
 export const OverlayProvider = ({ children }: { children: ReactNode }) => {
+  const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(
+    null
+  );
+  const [videoOverlays, setVideoOverlays] = useState<OverlayItem[]>([]);
   const [overlays, setOverlays] = useState<OverlayItem[]>([]);
   const [activeTextId, setActiveTextId] = useState<string | null>(null);
   const [isVideoFile, setIsVideoFile] = useState<boolean>(false);
@@ -69,6 +83,47 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
   const [activeGifId, setActiveGifId] = useState<string>("");
   const [activeImageId, setActiveImageId] = useState<string>("");
   const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
+
+  const copyOverlay = () => {
+    const copiedOverlay = overlays.find(
+      (overlay) => overlay.id === selectedOverlayId
+    );
+    if (copiedOverlay?.type === "video") {
+      setVideoOverlays((prev) => {
+        const copiedOverlay = prev?.find(
+          (overlay) => overlay.id === selectedOverlayId
+        );
+        if (!copiedOverlay) return prev;
+        const newOverlay = { ...copiedOverlay, id: Date.now().toString() };
+        return [...prev, newOverlay];
+      });
+      return 0;
+    }
+    setOverlays((prev) => {
+      const copiedOverlay = prev.find(
+        (overlay) => overlay.id === selectedOverlayId
+      );
+      if (!copiedOverlay) return prev;
+      const newOverlay = { ...copiedOverlay, id: Date.now().toString() };
+      return [...prev, newOverlay];
+    });
+  };
+
+  const deleteOverlay = () => {
+    const copiedOverlay = overlays.find(
+      (overlay) => overlay.id === selectedOverlayId
+    );
+
+    if (copiedOverlay?.type === "video") {
+      setVideoOverlays((prev) =>
+        prev?.filter((overlay) => overlay.id !== selectedOverlayId)
+      );
+      return 0;
+    }
+    setOverlays((prev) =>
+      prev.filter((overlay) => overlay.id !== selectedOverlayId)
+    );
+  };
 
   const addAudio = async (file: File, url: string) => {
     const newAudio: OverlayItem = {
@@ -127,7 +182,7 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
       startTime: 0,
     };
 
-    setOverlays((prev) => [...prev, newVideo]);
+    setVideoOverlays((prev) => [...prev, newVideo]);
   };
 
   const addText = () => {
@@ -147,6 +202,16 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateOverlay = (id: string, newData: Partial<OverlayItem>) => {
+    const copiedOverlay = overlays.find(
+      (overlay) => overlay.id === selectedOverlayId
+    );
+
+    if (copiedOverlay?.type === "video") {
+      setVideoOverlays((prev) =>
+        prev?.map((item) => (item.id === id ? { ...item, ...newData } : item))
+      );
+      return 0;
+    }
     setOverlays((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...newData } : item))
     );
@@ -155,6 +220,7 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
   return (
     <OverlayContext.Provider
       value={{
+        videoOverlays,
         overlays,
         addImage,
         addText,
@@ -162,6 +228,7 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
         addAudio,
         addGif,
         updateOverlay,
+        setVideoOverlays,
         setOverlays,
         activeTextId,
         setActiveTextId,
@@ -179,6 +246,10 @@ export const OverlayProvider = ({ children }: { children: ReactNode }) => {
         setGifOverlayActive,
         audioOverlayActive,
         setAudioOverlayActive,
+        selectedOverlayId,
+        setSelectedOverlayId,
+        deleteOverlay,
+        copyOverlay,
       }}
     >
       {children}

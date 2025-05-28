@@ -29,6 +29,8 @@ function App() {
         return <Media />;
       case "Images":
         return <ImageDrawer />;
+      case "Trim":
+        return <Media />;
       case "GIF":
         return <GifDrawer />;
       default:
@@ -43,7 +45,10 @@ function App() {
           slots={{
             navigation: (
               <div className="bg-gray-100 text-center h-full">
-                <Navigation onSelect={setSelectedItem} />
+                <Navigation
+                  onSelect={setSelectedItem}
+                  setSelectedItem={setSelectedItem}
+                />
               </div>
             ),
             assetsDrawer: <Drawer>{renderDrawerContent()}</Drawer>,
@@ -58,7 +63,10 @@ function App() {
             ),
           }}
         >
-          <VideoEditor selectedItem={selectedItem} />
+          <VideoEditor
+            setSelectedItem={setSelectedItem}
+            selectedItem={selectedItem}
+          />
         </SidebarLayout>
       </MediaProvider>
     </OverlayProvider>

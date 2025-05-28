@@ -51,7 +51,7 @@ export default function GifDrawer() {
   //   }, [folderId, apiKey]);
 
   return (
-    <div className="w-full max-w-lg mx-auto p-6 bg-gray-800 rounded-xl shadow-lg text-white">
+    <div className="w-full max-w-lg mx-auto p-6 text-white">
       <div className="mb-6">
         <label
           htmlFor="media-upload"

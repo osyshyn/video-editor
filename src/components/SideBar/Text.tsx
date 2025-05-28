@@ -6,7 +6,7 @@ const TextDrawer = () => {
 
   return (
     <div className="flex flex-col">
-      <div className="p-6 rounded-lg text-base shadow-lg w-80 space-y-6 bg-gray-800 text-white">
+      <div className="p-6 self-center w-full   rounded-lg text-base space-y-6 text-white">
         {activeTextId && (
           <>
             <div className="space-y-4 flex flex-col w-full items-center">

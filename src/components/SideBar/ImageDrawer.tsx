@@ -1,9 +1,13 @@
-// import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useOverlay } from "../context/OverlayContext";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 export default function ImageDrawer() {
-  // const [imageUrls, setImageUrls] = useState<string[]>([]);
-
   const {
     overlays,
     addImage,
@@ -13,48 +17,74 @@ export default function ImageDrawer() {
     updateOverlay,
   } = useOverlay();
 
-  // const folderId = "1D2_4orfkESXTzRoIsMVecXH9b8MR6VGo";
+  const [folders, setFolders] = useState<
+    { id: string; name: string; images?: { id: string; name: string }[] }[]
+  >([]);
+  const [openedFolderId, setOpenedFolderId] = useState<string | null>(null);
 
-  // const fetchImagesFromFolder = async (folderId: string) => {
-  //   const imageLinks: string[] = [];
+  const folderId = "10DaZkcJ_VJzt91H1hn8t61yRZ-c7tTnw";
+  const apiKey = "AIzaSyARNfRynX04u-3pt1A_cI0Jbnr9cPsxlak";
 
-  //   const fetchFiles = async (folderId: string) => {
-  //     try {
-  //       const response = await fetch(
-  //         `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${apiKey}`
-  //       );
-  //       const data = await response.json();
+  const fetchFolder = async (folderId: string) => {
+    const fetchFiles = async (folderId: string) => {
+      try {
+        const response = await fetch(
+          `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${apiKey}`
+        );
+        const data = await response.json();
+        setFolders(
+          data.files.map((folder: any) => ({
+            id: folder.id,
+            name: folder.name,
+            images: [],
+          }))
+        );
+      } catch (error) {
+        console.error("Error fetching files:", error);
+      }
+    };
 
-  //       for (const file of data.files) {
-  //         if (file.mimeType.startsWith("image/")) {
-  //           imageLinks.push(
-  //             `https://drive.google.com/uc?export=view&id=${file.id}`
-  //           );
-  //         } else if (file.mimeType === "application/vnd.google-apps.folder") {
-  //           await fetchFiles(file.id);
-  //         }
-  //       }
-  //     } catch (error) {
-  //       console.error("Error fetching files:", error);
-  //     }
-  //   };
+    await fetchFiles(folderId);
+  };
 
-  //   await fetchFiles(folderId);
+  const fetchImagesFromFolder = async (folderId: string) => {
+    try {
+      const response = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${apiKey}`
+      );
 
-  //   return imageLinks;
-  // };
+      const data = await response.json();
+      console.log(data);
+      setFolders((prevFolders) =>
+        prevFolders.map((folder) =>
+          folder.id === folderId
+            ? {
+                ...folder,
+                images: data.files.map((file: any) => file),
+              }
+            : folder
+        )
+      );
+    } catch (error) {
+      console.error("Error fetching images:", error);
+    }
+  };
 
-  // useEffect(() => {
-  //   const fetchImages = async () => {
-  //     const images = await fetchImagesFromFolder(folderId);
-  //     setImageUrls((prev) => [...prev, ...images]);
-  //   };
+  useEffect(() => {
+    fetchFolder(folderId);
+  }, []);
 
-  //   fetchImages();
-  // }, [folderId, apiKey]);
+  const handleAccordionToggle = (folderId: string) => {
+    if (openedFolderId === folderId) {
+      setOpenedFolderId(null);
+    } else {
+      setOpenedFolderId(folderId);
+      fetchImagesFromFolder(folderId);
+    }
+  };
 
   return (
-    <div className="w-full max-w-lg mx-auto p-6 bg-gray-800 rounded-xl shadow-lg text-white">
+    <div className="w-full max-w-lg mx-auto p-6 rounded-xl text-white">
       <div className="mb-6">
         <label
           htmlFor="media-upload"
@@ -107,16 +137,33 @@ export default function ImageDrawer() {
         </div>
       )}
 
-      {/* <div className="space-y-4">
-        {imageUrls.map((url, index) => (
-          <img
-            key={index}
-            src={url}
-            alt={`Image ${index + 1}`}
-            className="w-full h-auto rounded-md"
-          />
-        ))}
-      </div> */}
+      {folders.length > 0 && (
+        <Accordion type="single" collapsible>
+          {folders.map((folder) => (
+            <AccordionItem key={folder.id} value={folder.id}>
+              <AccordionTrigger
+                onClick={() => handleAccordionToggle(folder.id)}
+              >
+                {folder.name}
+              </AccordionTrigger>
+              <AccordionContent>
+                {openedFolderId === folder.id && folder.images?.length > 0 && (
+                  <div className="space-y-2 mt-4">
+                    {folder.images?.map((image, index) => (
+                      <img
+                        key={index}
+                        src={`https://lh3.googleusercontent.com/d/${image.id}`}
+                        alt={`Image ${index + 1}`}
+                        className="w-full h-auto rounded-md"
+                      />
+                    ))}
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      )}
     </div>
   );
 }

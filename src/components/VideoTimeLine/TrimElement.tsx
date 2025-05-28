@@ -1,26 +1,30 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef } from "react";
+import { useTrimContext } from "../context/TrimContext";
+import { OverlayItem } from "../context/OverlayContext";
 
-interface IVideoTrimerProps {
-  handleRangeChange: (startTime: number, endTime: number) => void;
-  videoRef: React.RefObject<HTMLVideoElement | null>;
-  setStartTime: React.Dispatch<React.SetStateAction<number>>;
-  startTime: number;
-  endTime: number;
-  setEndTime: React.Dispatch<React.SetStateAction<number>>;
+interface ITrimElementProps {
+  duration: number;
+  overlay: OverlayItem | null;
+  timelineRef: React.RefObject<HTMLDivElement | null>;
+  handleRangeChange: (startTime: number) => void;
 }
 
-export default function VideoTrimer({
-  videoRef,
+export const TrimElement = ({
+  overlay,
+  duration,
   handleRangeChange,
-  setStartTime,
-  startTime,
-  endTime,
-  setEndTime,
-}: IVideoTrimerProps) {
-  const [duration, setDuration] = useState(30);
-  const [currentTime, setCurrentTime] = useState(0);
+  timelineRef,
+}: ITrimElementProps) => {
+  const {
+    setDuration,
+    setEndTime,
+    videoRef,
+    startTime,
+    endTime,
+    setStartTime,
+    setCurrentTime,
+  } = useTrimContext();
 
-  const timelineRef = useRef<HTMLDivElement | null>(null);
   const isDraggingStart = useRef(false);
   const isDraggingEnd = useRef(false);
   const dragStartX = useRef(0);
@@ -28,12 +32,10 @@ export default function VideoTrimer({
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    setDuration(duration);
+    setEndTime(duration);
 
-    const updateDuration = () => {
-      setDuration(Math.floor(video.duration));
-      setEndTime(Math.floor(video.duration));
-    };
+    if (!video) return;
 
     let intervalId: NodeJS.Timeout;
 
@@ -48,19 +50,17 @@ export default function VideoTrimer({
       }, 0);
     };
 
-    video.addEventListener("loadedmetadata", updateDuration);
     video.addEventListener("timeupdate", updateCurrentTime);
     video.addEventListener("pause", () => clearInterval(intervalId));
     video.addEventListener("ended", () => clearInterval(intervalId));
 
     return () => {
-      video.removeEventListener("loadedmetadata", updateDuration);
       video.removeEventListener("timeupdate", updateCurrentTime);
       video.removeEventListener("pause", () => clearInterval(intervalId));
       video.removeEventListener("ended", () => clearInterval(intervalId));
       clearInterval(intervalId);
     };
-  }, [videoRef, setEndTime]);
+  }, [videoRef, setEndTime, setDuration, setCurrentTime, duration]);
 
   const handleMouseMove = (event: React.MouseEvent) => {
     if (!timelineRef.current) return;
@@ -72,7 +72,7 @@ export default function VideoTrimer({
       duration
     );
     setCurrentTime(newTime);
-    handleRangeChange(startTime, newTime);
+    handleRangeChange(startTime);
   };
 
   const handleDragStart = (event: React.MouseEvent, isStart: boolean) => {
@@ -101,7 +101,7 @@ export default function VideoTrimer({
         Math.min(dragStartTime.current + deltaTime, endTime)
       );
       setStartTime(newStartTime);
-      handleRangeChange(newStartTime, endTime);
+      handleRangeChange(newStartTime);
     }
 
     if (isDraggingEnd.current) {
@@ -110,7 +110,7 @@ export default function VideoTrimer({
         Math.min(dragStartTime.current + deltaTime, duration)
       );
       setEndTime(newEndTime);
-      handleRangeChange(startTime, newEndTime);
+      handleRangeChange(startTime);
     }
   };
 
@@ -119,47 +119,15 @@ export default function VideoTrimer({
     isDraggingEnd.current = false;
   };
 
-  return (
-    <div className="relative w-full flex justify-center items-center h-20 rounded">
+  if (overlay?.type === "audio" || overlay?.type === "video") {
+    return (
       <div
-        ref={timelineRef}
-        className="w-full h-20 p-2 bg-gray-300 rounded cursor-pointer relative"
+        className="w-full h-20 p-2 bg-gray-300 border-[#024EE6] border-[3px] rounded cursor-pointer relative"
         onClick={handleMouseMove}
         onMouseMove={handleDragMove}
         onMouseUp={handleDragEnd}
         onMouseLeave={handleDragEnd}
       >
-        <div
-          className="absolute top-0 left-0 h-20 bg-green-500"
-          style={{ width: `${(currentTime / duration) * 100}%` }}
-        />
-        <div className="relative flex items-end w-full h-6">
-          {Array.from({ length: duration * 2 + 1 }).map((_, index) => {
-            const timeLabel = (index / 2).toFixed(0);
-            return (
-              <div
-                key={index}
-                className="flex flex-col items-center"
-                style={{
-                  position: "absolute",
-                  left: `${(index / (duration * 2)) * 100}%`,
-                  transform: "translateX(-50%)",
-                }}
-              >
-                <div
-                  className="bg-gray-600"
-                  style={{
-                    width: "1px",
-                    height: index % 2 === 0 ? "10px" : "6px",
-                  }}
-                />
-                {index % 2 === 0 && (
-                  <span className="text-sm text-gray-900">{timeLabel}</span>
-                )}
-              </div>
-            );
-          })}
-        </div>
         <div
           className="absolute top-0 left-0 h-20 bg-blue-500 opacity-50"
           style={{
@@ -173,7 +141,7 @@ export default function VideoTrimer({
             left: `${(startTime / duration) * 100}%`,
             width: "6px",
             height: "100%",
-            backgroundColor: "red",
+            backgroundColor: "#024EE6",
             transform: "translateX(-50%)",
             cursor: "ew-resize",
           }}
@@ -185,13 +153,15 @@ export default function VideoTrimer({
             left: `${(endTime / duration) * 100}%`,
             width: "6px",
             height: "100%",
-            backgroundColor: "red",
+            backgroundColor: "#024EE6",
             transform: "translateX(-50%)",
             cursor: "ew-resize",
           }}
           onMouseDown={(e) => handleDragStart(e, false)}
         />
       </div>
-    </div>
-  );
-}
+    );
+  }
+
+  return null;
+};

@@ -1,22 +1,43 @@
 import { useEffect, useState, useRef } from "react";
-import { useOverlay } from "../context/OverlayContext";
+import { OverlayItem, useOverlay } from "../context/OverlayContext";
 import union from "../../assets/Union.svg";
 import { useDrop } from "react-dnd";
 import { TimeLines } from "./TimeLines";
+import { TimeLineMenu } from "./TimeLineMenu";
+import { useTimeLineContext } from "../context/TimeLineContext";
 
 interface IVideoTimelineProps {
-  handleRangeChange: (time: number) => void;
+  handleRangeChange: (startTime: number) => void;
   isPlaying: boolean;
+  setSelectedItem: React.Dispatch<React.SetStateAction<string>>;
+  selectedItem: string;
+  handleSetOverlay: React.Dispatch<React.SetStateAction<OverlayItem | null>>;
 }
 
 export default function VideoTimeLine({
+  handleSetOverlay,
   handleRangeChange,
   isPlaying,
+  setSelectedItem,
+  selectedItem,
 }: IVideoTimelineProps) {
-  const [currentTime, setCurrentTime] = useState(0);
-  const duration = 30;
+  const { currentTime, setCurrentTime, setTimeHasSetted } =
+    useTimeLineContext();
+  const [duration, setDuration] = useState<number>(30);
   const timelineRef = useRef<HTMLDivElement | null>(null);
-  const { updateOverlay } = useOverlay();
+  const {
+    updateOverlay,
+    deleteOverlay,
+    copyOverlay,
+    selectedOverlayId,
+    overlays,
+  } = useOverlay();
+  const [overlay, setOverlay] = useState<OverlayItem | null>(null);
+
+  const setOverlayNull = () => {
+    handleSetOverlay(null);
+    setOverlay(null);
+  };
 
   const isDragging = useRef(false);
   const dragType = useRef<"startTime" | "endTime" | null>(null);
@@ -40,26 +61,33 @@ export default function VideoTimeLine({
   }));
 
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
+    const fullOverlay = overlays.find(
+      (overlay) => overlay.id === selectedOverlayId
+    );
+    if (fullOverlay) setOverlay(fullOverlay);
+  }, [overlays, selectedOverlayId]);
+
+  useEffect(() => {
+    let animationFrameId: number;
+    let lastTime = performance.now();
+
+    const updateCurrentTime = (now: number) => {
+      const delta = (now - lastTime) / 1000;
+      lastTime = now;
+
+      setCurrentTime((prev) => Math.min(prev + delta, duration));
+
+      if (isPlaying) {
+        animationFrameId = requestAnimationFrame(updateCurrentTime);
+      }
+    };
 
     if (isPlaying) {
-      intervalId = setInterval(() => {
-        setCurrentTime((prev) => Math.min(prev + 0.01, duration));
-      }, 10);
-    } else {
-      clearInterval(intervalId);
+      animationFrameId = requestAnimationFrame(updateCurrentTime);
     }
-    return () => clearInterval(intervalId);
-  }, [isPlaying]);
 
-  const formatTime = (time: number) => {
-    const seconds = Math.floor(time);
-    const milliseconds = Math.floor((time % 1) * 100);
-    return `${String(seconds).padStart(2, "0")}:${String(milliseconds).padStart(
-      2,
-      "0"
-    )}`;
-  };
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [isPlaying, duration, setCurrentTime]);
 
   const handleDragStart = (
     overlayId: string,
@@ -79,6 +107,7 @@ export default function VideoTimeLine({
       duration
     );
     setCurrentTime(newTime);
+    setTimeHasSetted(newTime);
     handleRangeChange(newTime);
   };
 
@@ -108,7 +137,15 @@ export default function VideoTimeLine({
       window.removeEventListener("mousemove", handleDragMove);
       window.removeEventListener("mouseup", handleDragEnd);
     };
-  }, [updateOverlay]);
+  }, [updateOverlay, duration]);
+
+  useEffect(() => {
+    if (selectedItem === "Trim" && overlay?.duration) {
+      setDuration(overlay.duration);
+    } else if (selectedItem !== "Trim" && duration !== 30) {
+      setDuration(30);
+    }
+  }, [overlay?.duration, selectedItem, overlay?.type, duration]);
 
   return (
     <div className="relative w-full flex flex-col gap-2 select-none">
@@ -123,11 +160,16 @@ export default function VideoTimeLine({
           ref={timelineRef}
           onClick={handleMouseMove}
         >
-          <div className="flex justify-center gap-1 items-center text-white text-[16px] px-4">
-            <span>{formatTime(currentTime)}</span>
-            <span>/</span>
-            <span>{formatTime(duration)}</span>
-          </div>
+          <TimeLineMenu
+            setOverlayNull={setOverlayNull}
+            selectedItem={selectedItem}
+            overlay={overlay}
+            setSelectedItem={setSelectedItem}
+            copyOverlay={copyOverlay}
+            deleteOverlay={deleteOverlay}
+            currentTime={currentTime}
+            duration={duration}
+          />
           <div className="relative flex items-end w-full h-6">
             <div className="absolute h-[1px] w-[100vw] bg-[#9CA3AF]"></div>
             {Array.from({ length: duration * 2 + 1 }).map((_, index) => {
@@ -167,7 +209,15 @@ export default function VideoTimeLine({
           >
             <img src={union} alt="timeline line" />
           </div>
-          <TimeLines duration={duration} handleDragStart={handleDragStart} />
+          <TimeLines
+            timelineRef={timelineRef}
+            overlay={overlay}
+            handleDragStart={handleDragStart}
+            duration={duration}
+            selectedItem={selectedItem}
+            handleRangeChange={handleRangeChange}
+            setSelectedItem={setSelectedItem}
+          />
         </div>
       </div>
     </div>
